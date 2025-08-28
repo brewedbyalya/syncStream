@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h2 class="mb-4">My Rooms</h2>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4>Rooms I Created</h4>
+            </div>
+            <div class="card-body">
+                {% if created_rooms %}
+                <div class="list-group">
+                    {% for room in created_rooms %}
+                    <a href="{% url 'room_detail' room.id %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">{{ room.name }}</h5>
+                            <small>{{ room.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        <p class="mb-1">{{ room.description|truncatewords:10 }}</p>
+                        <small>{{ room.participants.count }} participants</small>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">You haven't created any rooms yet.</p>
+                {% endif %}
+                <div class="mt-3">
+                    <a href="{% url 'create_room' %}" class="btn btn-primary">Create New Room</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h4>Rooms I'm Participating In</h4>
+            </div>
+            <div class="card-body">
+                {% if participant_rooms %}
+                <div class="list-group">
+                    {% for room in participant_rooms %}
+                    <a href="{% url 'room_detail' room.id %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">{{ room.name }}</h5>
+                            <small>By {{ room.creator.username }}</small>
+                        </div>
+                        <p class="mb-1">{{ room.description|truncatewords:10 }}</p>
+                        <small>{{ room.participants.count }} participants</small>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">You're not participating in any rooms yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

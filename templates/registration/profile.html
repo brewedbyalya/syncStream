@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h4>User Profile</h4>
+            </div>
+            <div class="card-body text-center">
+                <div class="mb-3">
+                    <i class="fas fa-user-circle fa-5x text-primary"></i>
+                </div>
+                <h5>{{ user.username }}</h5>
+                <p class="text-muted">{{ user.email }}</p>
+                <p>Member since: {{ user.date_joined|date:"M d, Y" }}</p>
+                <p>Last login: {{ user.last_login|date:"M d, Y" }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>My Rooms</h4>
+            </div>
+            <div class="card-body">
+                <a href="{% url 'create_room' %}" class="btn btn-primary mb-3">Create New Room</a>
+                {% if user.created_rooms.all %}
+                <div class="list-group">
+                    {% for room in user.created_rooms.all %}
+                    <a href="{% url 'room_detail' room.id %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">{{ room.name }}</h5>
+                            <small>{{ room.created_at|date:"M d, Y" }}</small>
+                        </div>
+                        <p class="mb-1">{{ room.description|truncatewords:10 }}</p>
+                        <small>{{ room.participants.count }} participants</small>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">You haven't created any rooms yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
