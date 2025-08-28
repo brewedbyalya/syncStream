@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ room.name }}</h2>
+    <div>
+        {% if room.creator == user %}
+            <a href="{% url 'edit_room' room.id %}" class="btn btn-outline-primary btn-sm">Edit Room</a>
+        {% endif %}
+        <a href="{% url 'leave_room' room.id %}" class="btn btn-outline-danger btn-sm">Leave Room</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8 mb-4">
+        <div class="card">
+            <div class="card-header bg-dark text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Video Player</span>
+                    <span id="online-count">{{ room.participants.count }} online</span>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="video-container" class="ratio ratio-16x9 bg-dark">
+                    <div id="player-placeholder" class="d-flex flex-column justify-content-center align-items-center text-white">
+                        <i class="fas fa-play-circle fa-3x mb-2"></i>
+                        <p>No video playing. Enter a URL above to get started.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="input-group">
+                    <input type="text" id="video-url" class="form-control" placeholder="Enter video URL (YouTube, Vimeo, etc.)">
+                    <button id="load-video" class="btn btn-primary">Load</button>
+                </div>
+                <div class="d-flex justify-content-center mt-2">
+                    <button id="play-btn" class="btn btn-success btn-sm mx-1"><i class="fas fa-play"></i></button>
+                    <button id="pause-btn" class="btn btn-warning btn-sm mx-1"><i class="fas fa-pause"></i></button>
+                    <button id="sync-btn" class="btn btn-info btn-sm mx-1"><i class="fas fa-sync"></i> Sync</button>
+                </div>
+            </div>
+        </div>
+
+        {% if room.allow_screen_share %}
+        <div class="card mt-4">
+            <div class="card-header bg-dark text-white">
+                Screen Sharing
+            </div>
+            <div class="card-body">
+                <button id="start-screen-share" class="btn btn-primary">Start Screen Share</button>
+                <button id="stop-screen-share" class="btn btn-danger d-none">Stop Screen Share</button>
+                <div id="screen-share-container" class="mt-3 ratio ratio-16x9 bg-dark d-none">
+                    <!-- Screen share video will appear here -->
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <span>Chat</span>
+                <span id="chat-indicator" class="badge bg-success">Connected</span>
+            </div>
+            <div class="card-body p-0">
+                <div id="chat-messages" class="p-3" style="height: 400px; overflow-y: auto;">
+                    {% for message in messages %}
+                    <div class="mb-2">
+                        <strong>{{ message.user.username }}:</strong> {{ message.message }}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="card-footer">
+                <div class="input-group">
+                    <input type="text" id="chat-input" class="form-control" placeholder="Type your message...">
+                    <button id="chat-send" class="btn btn-primary">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header bg-dark text-white">
+        Participants ({{ room.participants.count }})
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap">
+            {% for participant in room.participants.all %}
+            <div class="badge bg-secondary m-1 p-2">
+                <i class="fas fa-user me-1"></i> {{ participant.user.username }}
+                {% if participant.user == room.creator %}<i class="fas fa-crown ms-1 text-warning" title="Room Creator"></i>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const roomId = "{{ room.id }}";
+    const userId = "{{ user.id }}";
+    const username = "{{ user.username }}";
+</script>
+<script src="{% static 'js/room.js' %}"></script>
+{% endblock %}

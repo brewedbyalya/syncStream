@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="hero-section bg-primary text-white py-5 rounded mb-4">
+    <div class="container text-center">
+        <h1 class="display-4">Watch Videos Together</h1>
+        <p class="lead">Create virtual rooms to watch videos and share your screen with friends</p>
+        {% if user.is_authenticated %}
+            <a href="{% url 'create_room' %}" class="btn btn-light btn-lg mt-3">Create a Room</a>
+        {% else %}
+            <a href="{% url 'signup' %}" class="btn btn-light btn-lg mt-3">Get Started</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <h2 class="mb-4">Public Rooms</h2>
+        
+        {% if rooms %}
+            <div class="row">
+                {% for room in rooms %}
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">{{ room.name }}</h5>
+                            <p class="card-text text-muted">{{ room.description|truncatewords:20 }}</p>
+                            <p class="card-text">
+                                <small class="text-muted">
+                                    Created by {{ room.creator.username }} • 
+                                    {{ room.participants.count }} online
+                                </small>
+                            </p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% url 'room_detail' room.id %}" class="btn btn-primary">Join Room</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No public rooms available. Be the first to create one!
+            </div>
+        {% endif %}
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">How it works</h5>
+            </div>
+            <div class="card-body">
+                <ol>
+                    <li>Create a room or join an existing one</li>
+                    <li>Share a video URL or start screen sharing</li>
+                    <li>Watch synchronized videos with your friends</li>
+                    <li>Chat with other participants in real-time</li>
+                </ol>
+            </div>
+        </div>
+        
+        {% if user.is_authenticated %}
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <a href="{% url 'create_room' %}" class="btn btn-primary w-100 mb-2">Create Room</a>
+                <a href="{% url 'user_rooms' %}" class="btn btn-outline-primary w-100">My Rooms</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
