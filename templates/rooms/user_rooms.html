@@ -6,29 +6,58 @@
 <div class="row">
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header">
-                <h4>Rooms I Created</h4>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">Rooms I Created</h4>
+                <a href="{% url 'create_room' %}" class="btn btn-primary btn-sm">Create New</a>
             </div>
             <div class="card-body">
                 {% if created_rooms %}
                 <div class="list-group">
                     {% for room in created_rooms %}
-                    <a href="{% url 'room_detail' room.id %}" class="list-group-item list-group-item-action">
+                    <div class="list-group-item {% if not room.is_active %}list-group-item-secondary{% endif %}">
                         <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">{{ room.name }}</h5>
+                            <h5 class="mb-1">
+                                {{ room.name }}
+                                {% if not room.is_active %}
+                                <span class="badge bg-danger">Deleted</span>
+                                {% endif %}
+                            </h5>
                             <small>{{ room.created_at|date:"M d, Y" }}</small>
                         </div>
                         <p class="mb-1">{{ room.description|truncatewords:10 }}</p>
                         <small>{{ room.participants.count }} participants</small>
-                    </a>
+                        
+                        <div class="mt-2">
+                            {% if room.is_active %}
+                            <a href="{% url 'room_detail' room.id %}" class="btn btn-success btn-sm">Join</a>
+                            <a href="{% url 'edit_room' room.id %}" class="btn btn-outline-primary btn-sm">Edit</a>
+                            <form action="{% url 'delete_room' room.id %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger btn-sm" 
+                                        onclick="return confirm('Are you sure you want to delete this room?')">
+                                    Delete
+                                </button>
+                            </form>
+                            {% else %}
+                            <form action="{% url 'restore_room' room.id %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-success btn-sm">Restore</button>
+                            </form>
+                            <form action="{% url 'delete_room' room.id %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger btn-sm" 
+                                        onclick="return confirm('Are you sure you want to permanently delete this room? This action cannot be undone.')">
+                                    Permanently Delete
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
                     {% endfor %}
                 </div>
                 {% else %}
                 <p class="text-muted">You haven't created any rooms yet.</p>
                 {% endif %}
-                <div class="mt-3">
-                    <a href="{% url 'create_room' %}" class="btn btn-primary">Create New Room</a>
-                </div>
             </div>
         </div>
     </div>
@@ -36,7 +65,7 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h4>Rooms I'm Participating In</h4>
+                <h4 class="mb-0">Rooms I'm Participating In</h4>
             </div>
             <div class="card-body">
                 {% if participant_rooms %}
@@ -59,4 +88,14 @@
         </div>
     </div>
 </div>
+
+<script>
+function confirmDelete(roomName) {
+    return confirm(`Are you sure you want to delete the room "${roomName}"?`);
+}
+
+function confirmPermanentDelete(roomName) {
+    return confirm(`Are you sure you want to permanently delete the room "${roomName}"? This action cannot be undone.`);
+}
+</script>
 {% endblock %}

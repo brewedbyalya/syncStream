@@ -1,7 +1,8 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseForbidden
 from django.views.decorators.http import require_http_methods
+from django.contrib import messages
 from .models import Room, Participant, Message
 from .forms import RoomForm
 
@@ -13,13 +14,22 @@ def home(request):
 def room_detail(request, room_id):
     room = get_object_or_404(Room, id=room_id, is_active=True)
     
-    if room.is_private and request.method == 'POST':
-        password = request.POST.get('password')
-        if password != room.password:
-            return render(request, 'rooms/room_password.html', {
-                'room': room,
-                'error': 'Invalid password'
-            })
+    if room.is_private:
+        if request.method == 'POST':
+            password = request.POST.get('password')
+            can_join, error_message = room.can_user_join(request.user, password)
+            if not can_join:
+                return render(request, 'rooms/room_password.html', {
+                    'room': room,
+                    'error': error_message
+                })
+        else:
+            return render(request, 'rooms/room_password.html', {'room': room})
+    
+    can_join, error_message = room.can_user_join(request.user)
+    if not can_join:
+        messages.error(request, error_message)
+        return redirect('home')
     
     participant, created = Participant.objects.get_or_create(
         room=room, 
@@ -31,11 +41,20 @@ def room_detail(request, room_id):
         participant.is_online = True
         participant.save()
     
-    messages = Message.objects.filter(room=room).order_by('created_at')[:50]
+    messages_list = Message.objects.filter(room=room).order_by('created_at')[:50]
+    
+
+    if not room.is_active:
+        if room.creator == request.user:
+            messages.warning(request, f'Room "{room.name}" has been deleted. You can restore it from your rooms page.')
+            return redirect('user_rooms')
+        else:
+            messages.error(request, 'This room no longer exists.')
+            return redirect('home')
     
     return render(request, 'rooms/room_detail.html', {
         'room': room,
-        'messages': messages,
+        'messages': messages_list,
     })
 
 @login_required
@@ -46,6 +65,7 @@ def create_room(request):
             room = form.save(commit=False)
             room.creator = request.user
             room.save()
+            messages.success(request, f'Room "{room.name}" created successfully!')
             return redirect('room_detail', room_id=room.id)
     else:
         form = RoomForm()
@@ -60,6 +80,7 @@ def edit_room(request, room_id):
         form = RoomForm(request.POST, instance=room)
         if form.is_valid():
             form.save()
+            messages.success(request, f'Room "{room.name}" updated successfully!')
             return redirect('room_detail', room_id=room.id)
     else:
         form = RoomForm(instance=room)
@@ -71,9 +92,9 @@ def delete_room(request, room_id):
     room = get_object_or_404(Room, id=room_id, creator=request.user)
     
     if request.method == 'POST':
-        room.is_active = False
-        room.save()
-        return redirect('home')
+        room.soft_delete()
+        messages.success(request, f'Room "{room.name}" has been deleted successfully!')
+        return redirect('user_rooms')
     
     return render(request, 'rooms/room_confirm_delete.html', {'room': room})
 
@@ -86,6 +107,7 @@ def leave_room(request, room_id):
         participant = Participant.objects.get(room=room, user=request.user)
         participant.is_online = False
         participant.save()
+        messages.info(request, f'You left the room "{room.name}"')
     except Participant.DoesNotExist:
         pass
     
@@ -93,15 +115,24 @@ def leave_room(request, room_id):
 
 @login_required
 def user_rooms(request):
-    created_rooms = Room.objects.filter(creator=request.user, is_active=True)
+    created_rooms = Room.objects.filter(creator=request.user)
     
     participant_rooms = Room.objects.filter(
         participants__user=request.user, 
         participants__is_online=True,
         is_active=True
-    ).exclude(creator=request.user)
+    ).exclude(creator=request.user).distinct()
     
     return render(request, 'rooms/user_rooms.html', {
         'created_rooms': created_rooms,
         'participant_rooms': participant_rooms,
     })
+
+@login_required
+@require_http_methods(['POST'])
+def restore_room(request, room_id):
+    room = get_object_or_404(Room, id=room_id, creator=request.user, is_active=False)
+    
+    room.restore()
+    messages.success(request, f'Room "{room.name}" has been restored successfully!')
+    return redirect('room_detail', room_id=room.id)
