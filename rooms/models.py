@@ -3,7 +3,6 @@ from django.conf import settings
 import uuid
 from django.utils import timezone
 
-
 class Room(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=100)
@@ -14,19 +13,21 @@ class Room(models.Model):
     password = models.CharField(max_length=50, blank=True, null=True)
     max_users = models.PositiveIntegerField(default=10)
     is_active = models.BooleanField(default=True)
-    deleted_at = models.DateTimeField(blank=True, null=True)
     is_locked = models.BooleanField(default=False)
     allow_screen_share = models.BooleanField(default=True)
     allow_chat = models.BooleanField(default=True)
     current_video_url = models.URLField(blank=True, null=True)
     video_state = models.CharField(max_length=20, default='paused')
     video_timestamp = models.FloatField(default=0)
+    last_video_update = models.DateTimeField(blank=True, null=True)
+    deleted_at = models.DateTimeField(blank=True, null=True)
     
     def __str__(self):
         return self.name
     
     def get_online_users_count(self):
         return self.participants.filter(is_online=True).count()
+    
     def get_online_users(self):
         return self.participants.filter(is_online=True)
     
@@ -52,26 +53,93 @@ class Room(models.Model):
             return False, "Room is full"
         
         return True, "Can join"
-
+    
     def soft_delete(self):
-        self.is_active = False
-        self.deleted_at = timezone.now()
-        self.save()
-        
-        self.participants.update(is_online=False)
-        
-        self.screen_sessions.filter(is_active=True).update(
-            is_active=False, 
-            ended_at=timezone.now()
-        )
+        """Soft delete the room by marking it as inactive"""
+        try:
+            self.is_active = False
+            self.deleted_at = timezone.now()
+            self.save()
+            
+            self.participants.update(is_online=False)
+            
+            self.screen_sessions.filter(is_active=True).update(
+                is_active=False, 
+                ended_at=timezone.now()
+            )
+            return True
+        except Exception as e:
+            print(f"Error soft deleting room {self.id}: {e}")
+            return False
     
     def hard_delete(self):
-        super().delete()
+        """Permanently delete the room and all related data"""
+        try:
+            self.participants.all().delete()
+            self.messages.all().delete()
+            self.screen_sessions.all().delete()
+            
+            super().delete()
+            return True
+        except Exception as e:
+            print(f"Error hard deleting room {self.id}: {e}")
+            return False
     
     def restore(self):
-        self.is_active = True
-        self.deleted_at = None
+        """Restore a soft-deleted room"""
+        try:
+            self.is_active = True
+            self.deleted_at = None
+            self.save()
+            return True
+        except Exception as e:
+            print(f"Error restoring room {self.id}: {e}")
+            return False
+    
+    def can_be_deleted_by(self, user):
+        """Check if user has permission to delete this room"""
+        return self.creator == user or user.is_staff
+    
+    def is_deleted(self):
+        """Check if room is deleted"""
+        return not self.is_active and self.deleted_at is not None
+    
+    def get_video_state(self):
+        """Get current video state as dict"""
+        return {
+            'url': self.current_video_url,
+            'state': self.video_state,
+            'timestamp': self.video_timestamp,
+            'last_update': self.last_video_update.isoformat() if self.last_video_update else None
+        }
+    
+    def update_video_state(self, action, timestamp, url=None):
+        """Update video state with validation"""
+        if url and url != self.current_video_url:
+            self.current_video_url = url
+        
+        valid_actions = ['play', 'pause', 'load', 'sync']
+        if action in valid_actions:
+            self.video_state = action
+        
+        if timestamp >= 0:
+            self.video_timestamp = timestamp
+        
+        self.last_video_update = timezone.now()
         self.save()
+    
+    def get_participants_info(self):
+        """Get detailed participants information"""
+        return [
+            {
+                'id': participant.user.id,
+                'username': participant.user.username,
+                'is_online': participant.is_online,
+                'is_moderator': participant.is_moderator,
+                'joined_at': participant.joined_at.isoformat()
+            }
+            for participant in self.participants.select_related('user').all()
+        ]
 
 class Participant(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='participants')
@@ -85,7 +153,7 @@ class Participant(models.Model):
     
     def __str__(self):
         return f"{self.user.username} in {self.room.name}"
-
+    
     def set_online(self):
         self.is_online = True
         self.save()
@@ -113,7 +181,7 @@ class Message(models.Model):
     
     def __str__(self):
         return f"{self.user.username}: {self.message[:20]}..."
-
+    
     def to_dict(self):
         return {
             'id': str(self.id),
@@ -134,8 +202,22 @@ class ScreenSession(models.Model):
     
     def __str__(self):
         return f"{self.user.username} screen share in {self.room.name}"
-
+    
     def end_session(self):
         self.ended_at = timezone.now()
         self.is_active = False
         self.save()
+
+class VideoSyncData(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='sync_data')
+    action = models.CharField(max_length=20)
+    client_timestamp = models.FloatField()
+    server_timestamp = models.FloatField()
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.user.username} {self.action} at {self.client_timestamp}"

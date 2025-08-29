@@ -5,6 +5,8 @@ from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from .models import Room, Participant, Message
 from .forms import RoomForm
+import json
+from django.views.decorators.csrf import csrf_exempt
 
 def home(request):
     rooms = Room.objects.filter(is_active=True, is_private=False)
@@ -136,3 +138,71 @@ def restore_room(request, room_id):
     room.restore()
     messages.success(request, f'Room "{room.name}" has been restored successfully!')
     return redirect('room_detail', room_id=room.id)
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def room_state_api(request, room_id):
+    """API endpoint to get room state"""
+    try:
+        room = Room.objects.get(id=room_id, is_active=True)
+        
+        if room.is_private and not request.user.is_authenticated:
+            return JsonResponse({'error': 'Authentication required'}, status=401)
+        
+        if room.is_private and room.password and not request.user.is_authenticated:
+            pass
+        
+        data = {
+            'room': {
+                'id': str(room.id),
+                'name': room.name,
+                'creator': room.creator.username,
+                'video_state': room.get_video_state(),
+                'participants_count': room.participants.count(),
+                'online_count': room.get_online_users_count(),
+                'is_private': room.is_private
+            },
+            'participants': room.get_participants_info(),
+            'messages': [
+                {
+                    'id': str(msg.id),
+                    'user': msg.user.username,
+                    'message': msg.message,
+                    'type': msg.message_type,
+                    'timestamp': msg.created_at.isoformat()
+                }
+                for msg in room.messages.all().order_by('-created_at')[:20]
+            ]
+        }
+        
+        return JsonResponse(data)
+        
+    except Room.DoesNotExist:
+        return JsonResponse({'error': 'Room not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@login_required
+def update_video_state_api(request, room_id):
+    """API endpoint to update video state"""
+    try:
+        room = Room.objects.get(id=room_id, is_active=True)
+        
+        if not room.participants.filter(user=request.user, is_online=True).exists():
+            return JsonResponse({'error': 'Not a participant'}, status=403)
+        
+        data = json.loads(request.body)
+        action = data.get('action')
+        timestamp = data.get('timestamp', 0)
+        url = data.get('url')
+        
+        room.update_video_state(action, timestamp, url)
+        
+        return JsonResponse({'status': 'success', 'state': room.get_video_state()})
+        
+    except Room.DoesNotExist:
+        return JsonResponse({'error': 'Room not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

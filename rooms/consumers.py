@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
@@ -115,7 +116,8 @@ class RoomConsumer(AsyncWebsocketConsumer):
         
         room = await self.get_room()
         if room:
-            await self.update_video_state(room, action, timestamp, url)
+            server_timestamp = time.time()
+            await self.update_video_state(room, action, timestamp, url, server_timestamp)
             
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -123,6 +125,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                     'type': 'video_control',
                     'action': action,
                     'timestamp': timestamp,
+                    'server_timestamp': server_timestamp,
                     'url': url,
                     'user_id': self.user.id,
                     'username': self.user.username,
@@ -166,6 +169,12 @@ class RoomConsumer(AsyncWebsocketConsumer):
         }))
 
     async def video_control(self, event):
+        client_timestamp = event['timestamp']
+        server_timestamp = event.get('server_timestamp', 0)
+        current_time = time.time()
+        
+        latency = current_time - server_timestamp if server_timestamp else 0
+        
         await self.send(text_data=json.dumps({
             'type': 'video_control',
             'action': event['action'],
@@ -173,6 +182,8 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'url': event['url'],
             'user_id': event['user_id'],
             'username': event['username'],
+            'server_timestamp': server_timestamp,
+            'latency': round(latency, 3)
         }))
 
     async def screen_share_started(self, event):
@@ -270,3 +281,28 @@ class RoomConsumer(AsyncWebsocketConsumer):
             user=self.user, 
             is_active=True
         ).update(is_active=False, ended_at=timezone.now())
+
+async def receive(self, text_data):
+    try:
+        data = json.loads(text_data)
+        message_type = data.get('type')
+        
+        if message_type == 'chat_message':
+            await self.handle_chat_message(data)
+        elif message_type == 'video_control':
+            await self.handle_video_control(data)
+        elif message_type == 'screen_share':
+            await self.handle_screen_share(data)
+        elif message_type == 'ping':
+            await self.send(text_data=json.dumps({
+                'type': 'pong',
+                'client_time': data.get('client_time'),
+                'server_time': time.time()
+            }))
+        else:
+            logger.warning(f"Unknown message type: {message_type}")
+            
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON received")
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
