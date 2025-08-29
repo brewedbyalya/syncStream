@@ -6,11 +6,11 @@
     <h2>{{ room.name }}</h2>
     <div>
         {% if room.creator == user %}
-            <a href="{% url 'edit_room' room.id %}" class="btn btn-outline-primary btn-sm me-2">
+            <a href="{% url 'rooms:edit_room' room.id %}" class="btn btn-outline-primary btn-sm me-2">
                 <i class="fas fa-edit me-1"></i>Edit Room
             </a>
         {% endif %}
-        <form action="{% url 'leave_room' room.id %}" method="post" class="d-inline">
+        <form action="{% url 'rooms:leave_room' room.id %}" method="post" class="d-inline">
             {% csrf_token %}
             <button type="submit" class="btn btn-outline-danger btn-sm">
                 <i class="fas fa-sign-out-alt me-1"></i>Leave Room
@@ -156,7 +156,7 @@
                         <i class="fas fa-video me-2"></i>Copy Video URL
                     </button>
                     {% if room.creator == user %}
-                    <a href="{% url 'edit_room' room.id %}" class="btn btn-outline-warning">
+                    <a href="{% url 'rooms:edit_room' room.id %}" class="btn btn-outline-warning">
                         <i class="fas fa-cog me-2"></i>Room Settings
                     </a>
                     {% endif %}

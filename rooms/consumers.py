@@ -29,6 +29,8 @@ class RoomConsumer(AsyncWebsocketConsumer):
             room = await self.get_room()
             if room and room.is_active:
                 await self.add_participant(room)
+                await self.update_user_online_status(True)
+                await self.update_participant_online_status(True)
                 await self.accept()
                 
                 await self.channel_layer.group_send(
@@ -49,6 +51,8 @@ class RoomConsumer(AsyncWebsocketConsumer):
         if self.user.is_authenticated:
             try:
                 await self.remove_participant()
+                await self.update_user_online_status(False)
+                await self.update_participant_online_status(False)
                 
                 await self.channel_layer.group_send(
                     self.room_group_name,
@@ -80,6 +84,14 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 await self.handle_video_control(data)
             elif message_type == 'screen_share':
                 await self.handle_screen_share(data)
+            elif message_type == 'ping':
+                await self.send(text_data=json.dumps({
+                    'type': 'pong',
+                    'client_time': data.get('client_time'),
+                    'server_time': time.time()
+                }))
+            elif message_type == 'webrtc_signal':
+                await self.handle_webrtc_signal(data)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
                 
@@ -159,6 +171,19 @@ class RoomConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
+    async def handle_webrtc_signal(self, data):
+        webrtc_data = data.get('data', {})
+        
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'webrtc_signal',
+                'data': webrtc_data,
+                'user_id': self.user.id,
+                'username': self.user.username,
+            }
+        )
+
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
             'type': 'chat_message',
@@ -215,6 +240,14 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'username': event['username'],
         }))
 
+    async def webrtc_signal(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'webrtc_signal',
+            'data': event['data'],
+            'user_id': event['user_id'],
+            'username': event['username'],
+        }))
+
     @database_sync_to_async
     def get_room(self):
         try:
@@ -244,6 +277,28 @@ class RoomConsumer(AsyncWebsocketConsumer):
             pass
 
     @database_sync_to_async
+    def update_user_online_status(self, is_online):
+        try:
+            self.user.is_online = is_online
+            if is_online:
+                self.user.last_activity = timezone.now()
+            self.user.save(update_fields=['is_online', 'last_activity'])
+        except Exception as e:
+            logger.error(f"Error updating user online status: {e}")
+
+
+    @database_sync_to_async  
+    def update_participant_online_status(self, is_online):
+        try:
+            participant = Participant.objects.get(room_id=self.room_id, user=self.user)
+            participant.is_online = is_online
+            participant.save(update_fields=['is_online'])
+        except Participant.DoesNotExist:
+            logger.warning(f"Participant not found for user {self.user.id} in room {self.room_id}")
+        except Exception as e:
+            logger.error(f"Error updating participant online status: {e}")
+
+    @database_sync_to_async
     def save_message(self, room, message):
         return Message.objects.create(
             room=room,
@@ -253,11 +308,18 @@ class RoomConsumer(AsyncWebsocketConsumer):
         )
 
     @database_sync_to_async
-    def update_video_state(self, room, action, timestamp, url):
+    def update_video_state(self, room, action, timestamp, url, server_timestamp=None):
         if url and url != room.current_video_url:
             room.current_video_url = url
-        room.video_state = action
-        room.video_timestamp = timestamp
+        
+        valid_actions = ['play', 'pause', 'load', 'sync']
+        if action in valid_actions:
+            room.video_state = action
+        
+        if timestamp >= 0:
+            room.video_timestamp = timestamp
+        
+        room.last_video_update = timezone.now()
         room.save()
 
     @database_sync_to_async
@@ -281,28 +343,3 @@ class RoomConsumer(AsyncWebsocketConsumer):
             user=self.user, 
             is_active=True
         ).update(is_active=False, ended_at=timezone.now())
-
-async def receive(self, text_data):
-    try:
-        data = json.loads(text_data)
-        message_type = data.get('type')
-        
-        if message_type == 'chat_message':
-            await self.handle_chat_message(data)
-        elif message_type == 'video_control':
-            await self.handle_video_control(data)
-        elif message_type == 'screen_share':
-            await self.handle_screen_share(data)
-        elif message_type == 'ping':
-            await self.send(text_data=json.dumps({
-                'type': 'pong',
-                'client_time': data.get('client_time'),
-                'server_time': time.time()
-            }))
-        else:
-            logger.warning(f"Unknown message type: {message_type}")
-            
-    except json.JSONDecodeError:
-        logger.error("Invalid JSON received")
-    except Exception as e:
-        logger.error(f"Error processing message: {e}")

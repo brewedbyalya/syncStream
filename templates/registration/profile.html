@@ -24,11 +24,11 @@
                 <h4>My Rooms</h4>
             </div>
             <div class="card-body">
-                <a href="{% url 'create_room' %}" class="btn btn-primary mb-3">Create New Room</a>
+                <a href="{% url 'rooms:create_room' %}" class="btn btn-primary mb-3">Create New Room</a>
                 {% if user.created_rooms.all %}
                 <div class="list-group">
                     {% for room in user.created_rooms.all %}
-                    <a href="{% url 'room_detail' room.id %}" class="list-group-item list-group-item-action">
+                    <a href="{% url 'rooms:room_detail' room.id %}" class="list-group-item list-group-item-action">
                         <div class="d-flex w-100 justify-content-between">
                             <h5 class="mb-1">{{ room.name }}</h5>
                             <small>{{ room.created_at|date:"M d, Y" }}</small>

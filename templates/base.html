@@ -25,10 +25,10 @@
                     </li>
                     {% if user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'create_room' %}">Create Room</a>
+                        <a class="nav-link" href="{% url 'rooms:create_room' %}">Create Room</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'user_rooms' %}">My Rooms</a>
+                        <a class="nav-link" href="{% url 'rooms:user_rooms' %}">My Rooms</a>
                     </li>
                     {% endif %}
                 </ul>
@@ -40,7 +40,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'logout' %}">Logout</a>
+                        <form action="{% url 'logout' %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="nav-link btn btn-link" style="border: none; background: none;">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </button>
+                        </form>
                     </li>
                     {% else %}
                     <li class="nav-item">

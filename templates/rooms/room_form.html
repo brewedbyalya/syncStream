@@ -23,7 +23,7 @@
                     </div>
                     {% endfor %}
                     <button type="submit" class="btn btn-primary">{% if form.instance.id %}Update{% else %}Create{% endif %} Room</button>
-                    <a href="{% if form.instance.id %}{% url 'room_detail' form.instance.id %}{% else %}{% url 'home' %}{% endif %}" class="btn btn-secondary">Cancel</a>
+                    <a href="{% if form.instance.id %}{% url 'rooms:room_detail' form.instance.id %}{% else %}{% url 'home' %}{% endif %}" class="btn btn-secondary">Cancel</a>
                 </form>
             </div>
         </div>

@@ -55,7 +55,6 @@ class Room(models.Model):
         return True, "Can join"
     
     def soft_delete(self):
-        """Soft delete the room by marking it as inactive"""
         try:
             self.is_active = False
             self.deleted_at = timezone.now()
@@ -73,7 +72,6 @@ class Room(models.Model):
             return False
     
     def hard_delete(self):
-        """Permanently delete the room and all related data"""
         try:
             self.participants.all().delete()
             self.messages.all().delete()
@@ -86,7 +84,6 @@ class Room(models.Model):
             return False
     
     def restore(self):
-        """Restore a soft-deleted room"""
         try:
             self.is_active = True
             self.deleted_at = None
@@ -97,15 +94,12 @@ class Room(models.Model):
             return False
     
     def can_be_deleted_by(self, user):
-        """Check if user has permission to delete this room"""
         return self.creator == user or user.is_staff
     
     def is_deleted(self):
-        """Check if room is deleted"""
         return not self.is_active and self.deleted_at is not None
     
     def get_video_state(self):
-        """Get current video state as dict"""
         return {
             'url': self.current_video_url,
             'state': self.video_state,
@@ -114,7 +108,6 @@ class Room(models.Model):
         }
     
     def update_video_state(self, action, timestamp, url=None):
-        """Update video state with validation"""
         if url and url != self.current_video_url:
             self.current_video_url = url
         
@@ -129,7 +122,6 @@ class Room(models.Model):
         self.save()
     
     def get_participants_info(self):
-        """Get detailed participants information"""
         return [
             {
                 'id': participant.user.id,

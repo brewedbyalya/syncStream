@@ -5,9 +5,9 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h3 class="text-danger">
+                <h3 class="{% if room.is_active %}text-danger{% else %}text-warning{% endif %}">
                     <i class="fas fa-exclamation-triangle me-2"></i>
-                    {% if room.is_active %}Delete Room{% else %}Permanently Delete Room{% endif %}
+                    {% if room.is_active %}Delete Room{% else %}Room Options{% endif %}
                 </h3>
             </div>
             <div class="card-body">
@@ -17,26 +17,65 @@
                     <i class="fas fa-info-circle me-1"></i>
                     This will remove the room from public view, but you can restore it later from your rooms page.
                 </p>
-                {% else %}
-                <p>Are you sure you want to <strong>permanently delete</strong> the room <strong>"{{ room.name }}"</strong>?</p>
-                <p class="text-danger">
-                    <i class="fas fa-exclamation-circle me-1"></i>
-                    This action cannot be undone. All room data including messages and participants will be lost forever.
-                </p>
-                {% endif %}
                 
                 <form method="post">
                     {% csrf_token %}
+                    <input type="hidden" name="permanent" value="false">
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{% if room.is_active %}{% url 'room_detail' room.id %}{% else %}{% url 'user_rooms' %}{% endif %}" 
-                           class="btn btn-secondary me-md-2">
+                        <a href="{% url 'room_detail' room.id %}" class="btn btn-secondary me-md-2">
                             Cancel
                         </a>
                         <button type="submit" class="btn btn-danger">
-                            {% if room.is_active %}Delete Room{% else %}Permanently Delete{% endif %}
+                            <i class="fas fa-trash me-1"></i>Delete Room
                         </button>
                     </div>
                 </form>
+                
+                {% else %}
+                <p class="mb-4">Room <strong>"{{ room.name }}"</strong> is currently deleted. What would you like to do?</p>
+                
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-undo fa-2x text-success mb-2"></i>
+                                <h5>Restore Room</h5>
+                                <p class="text-muted small">Make this room active and available again</p>
+                                <form action="{% url 'restore_room' room.id %}" method="post">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success w-100">
+                                        <i class="fas fa-undo me-1"></i>Restore
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="fas fa-fire fa-2x text-danger mb-2"></i>
+                                <h5>Permanently Delete</h5>
+                                <p class="text-muted small">Remove this room forever (cannot be undone)</p>
+                                <form method="post">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="permanent" value="true">
+                                    <button type="submit" class="btn btn-outline-danger w-100" 
+                                            onclick="return confirm('Are you ABSOLUTELY sure? This will permanently delete the room and all its data forever!')">
+                                        <i class="fas fa-fire me-1"></i>Permanently Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-3">
+                    <a href="{% url 'user_rooms' %}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Back to My Rooms
+                    </a>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>

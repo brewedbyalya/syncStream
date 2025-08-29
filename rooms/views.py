@@ -14,7 +14,15 @@ def home(request):
 
 @login_required
 def room_detail(request, room_id):
-    room = get_object_or_404(Room, id=room_id, is_active=True)
+    room = get_object_or_404(Room, id=room_id)
+    
+    if not room.is_active:
+        if room.creator == request.user:
+            messages.warning(request, f'Room "{room.name}" has been deleted. You can restore it from your rooms page.')
+            return redirect('rooms:user_rooms')
+        else:
+            messages.error(request, 'This room no longer exists.')
+            return redirect('home')
     
     if room.is_private:
         if request.method == 'POST':
@@ -45,18 +53,10 @@ def room_detail(request, room_id):
     
     messages_list = Message.objects.filter(room=room).order_by('created_at')[:50]
     
-
-    if not room.is_active:
-        if room.creator == request.user:
-            messages.warning(request, f'Room "{room.name}" has been deleted. You can restore it from your rooms page.')
-            return redirect('user_rooms')
-        else:
-            messages.error(request, 'This room no longer exists.')
-            return redirect('home')
-    
     return render(request, 'rooms/room_detail.html', {
         'room': room,
         'messages': messages_list,
+        'user': request.user,
     })
 
 @login_required
@@ -68,7 +68,7 @@ def create_room(request):
             room.creator = request.user
             room.save()
             messages.success(request, f'Room "{room.name}" created successfully!')
-            return redirect('room_detail', room_id=room.id)
+            return redirect('rooms:room_detail', room_id=room.id)
     else:
         form = RoomForm()
     
@@ -83,7 +83,7 @@ def edit_room(request, room_id):
         if form.is_valid():
             form.save()
             messages.success(request, f'Room "{room.name}" updated successfully!')
-            return redirect('room_detail', room_id=room.id)
+            return redirect('rooms:room_detail', room_id=room.id)
     else:
         form = RoomForm(instance=room)
     
@@ -94,9 +94,16 @@ def delete_room(request, room_id):
     room = get_object_or_404(Room, id=room_id, creator=request.user)
     
     if request.method == 'POST':
-        room.soft_delete()
-        messages.success(request, f'Room "{room.name}" has been deleted successfully!')
-        return redirect('user_rooms')
+        permanent = request.POST.get('permanent', False)
+        if permanent:
+            room_name = room.name
+            room.hard_delete()
+            messages.success(request, f'Room "{room_name}" has been permanently deleted!')
+        else:
+            room.soft_delete()
+            messages.success(request, f'Room "{room.name}" has been deleted successfully!')
+        
+        return redirect('rooms:user_rooms')
     
     return render(request, 'rooms/room_confirm_delete.html', {'room': room})
 
@@ -137,12 +144,11 @@ def restore_room(request, room_id):
     
     room.restore()
     messages.success(request, f'Room "{room.name}" has been restored successfully!')
-    return redirect('room_detail', room_id=room.id)
+    return redirect('rooms:room_detail', room_id=room.id)
 
 @csrf_exempt
 @require_http_methods(["GET"])
 def room_state_api(request, room_id):
-    """API endpoint to get room state"""
     try:
         room = Room.objects.get(id=room_id, is_active=True)
         
@@ -150,7 +156,7 @@ def room_state_api(request, room_id):
             return JsonResponse({'error': 'Authentication required'}, status=401)
         
         if room.is_private and room.password and not request.user.is_authenticated:
-            pass
+            return JsonResponse({'error': 'Password required'}, status=403)
         
         data = {
             'room': {
@@ -186,7 +192,6 @@ def room_state_api(request, room_id):
 @require_http_methods(["POST"])
 @login_required
 def update_video_state_api(request, room_id):
-    """API endpoint to update video state"""
     try:
         room = Room.objects.get(id=room_id, is_active=True)
         
