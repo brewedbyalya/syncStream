@@ -1,77 +1,244 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="hero-section bg-primary text-white py-5 rounded mb-4">
-    <div class="container text-center">
-        <h1 class="display-4">Watch Videos Together</h1>
-        <p class="lead">Create virtual rooms to watch videos and share your screen with friends</p>
-        {% if user.is_authenticated %}
-            <a href="{% url 'rooms:create_room' %}" class="btn btn-light btn-lg mt-3">Create a Room</a>
-        {% else %}
-            <a href="{% url 'signup' %}" class="btn btn-light btn-lg mt-3">Get Started</a>
-        {% endif %}
+<section class="hero-section">
+    <div class="hero-content">
+        <div class="hero-text">
+            <h1 class="hero-title">Watch Videos <span class="gradient-text">Together</span></h1>
+            <p class="hero-subtitle">Create virtual rooms to watch videos and share your screen with friends in real-time</p>
+            <div class="hero-buttons">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'rooms:create_room' %}" class="btn btn-primary hero-btn">
+                        <i class="fas fa-plus-circle me-2"></i>Create a Room
+                    </a>
+                {% else %}
+                    <a href="{% url 'signup' %}" class="btn btn-primary hero-btn">
+                        <i class="fas fa-rocket me-2"></i>Get Started
+                    </a>
+                {% endif %}
+                <a href="#how-it-works" class="btn btn-outline-secondary hero-btn">
+                    <i class="fas fa-info-circle me-2"></i>Learn More
+                </a>
+            </div>
+        </div>
+        <div class="hero-visual">
+            <div class="floating-cards">
+                <div class="floating-card card-1">
+                    <i class="fas fa-video"></i>
+                    <span>Sync Videos</span>
+                </div>
+                <div class="floating-card card-2">
+                    <i class="fas fa-comments"></i>
+                    <span>Live Chat</span>
+                </div>
+                <div class="floating-card card-3">
+                    <i class="fas fa-desktop"></i>
+                    <span>Screen Share</span>
+                </div>
+            </div>
+        </div>
     </div>
-</div>
+    <div class="hero-scroll">
+        <i class="fas fa-chevron-down"></i>
+    </div>
+</section>
 
-<div class="row">
-    <div class="col-md-8">
-        <h2 class="mb-4">Public Rooms</h2>
+<section class="rooms-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Public Rooms</h2>
+            <p class="section-subtitle">Join these active rooms and start watching together</p>
+        </div>
         
         {% if rooms %}
-            <div class="row">
+            <div class="rooms-grid">
                 {% for room in rooms %}
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ room.name }}</h5>
-                            <p class="card-text text-muted">{{ room.description|truncatewords:20 }}</p>
-                            <p class="card-text">
-                                <small class="text-muted">
-                                    Created by {{ room.creator.username }} • 
-                                    {{ room.participants.count }} online
-                                </small>
-                            </p>
+                <div class="room-card">
+                    <div class="room-card-header">
+                        <h3 class="room-name">{{ room.name }}</h3>
+                        <span class="room-badge">{{ room.participants.count }} online</span>
+                    </div>
+                    <div class="room-card-body">
+                        <p class="room-description">{{ room.description|truncatewords:20 }}</p>
+                        <div class="room-meta">
+                            <div class="room-creator">
+                                <i class="fas fa-user"></i>
+                                {{ room.creator.username }}
+                            </div>
+                            <div class="room-date">
+                                <i class="fas fa-calendar"></i>
+                                {{ room.created_at|date:"M d, Y" }}
+                            </div>
                         </div>
-                        <div class="card-footer">
-                            <a href="{% url 'rooms:room_detail' room.id %}" class="btn btn-primary">Join Room</a>
-                        </div>
+                    </div>
+                    <div class="room-card-footer">
+                        <a href="{% url 'rooms:room_detail' room.id %}" class="btn btn-primary room-join-btn">
+                            <i class="fas fa-arrow-right me-2"></i>Join Room
+                        </a>
                     </div>
                 </div>
                 {% endfor %}
             </div>
         {% else %}
-            <div class="alert alert-info">
-                No public rooms available. Be the first to create one!
+            <div class="empty-state">
+                <div class="empty-icon">
+                    <i class="fas fa-film"></i>
+                </div>
+                <h3>No public rooms available</h3>
+                <p>Be the first to create a room and start watching with friends!</p>
+                {% if user.is_authenticated %}
+                    <a href="{% url 'rooms:create_room' %}" class="btn btn-primary">
+                        <i class="fas fa-plus-circle me-2"></i>Create Room
+                    </a>
+                {% else %}
+                    <a href="{% url 'signup' %}" class="btn btn-primary">
+                        <i class="fas fa-user-plus me-2"></i>Sign Up to Create
+                    </a>
+                {% endif %}
             </div>
         {% endif %}
     </div>
-    
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">How it works</h5>
-            </div>
-            <div class="card-body">
-                <ol>
-                    <li>Create a room or join an existing one</li>
-                    <li>Share a video URL or start screen sharing</li>
-                    <li>Watch synchronized videos with your friends</li>
-                    <li>Chat with other participants in real-time</li>
-                </ol>
-            </div>
+</section>
+
+<section id="how-it-works" class="how-it-works-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">How It Works</h2>
+            <p class="section-subtitle">Start watching together in just a few simple steps</p>
         </div>
         
-        {% if user.is_authenticated %}
-        <div class="card mt-4">
-            <div class="card-header">
-                <h5 class="mb-0">Quick Actions</h5>
+        <div class="steps-grid">
+            <div class="step-item">
+                <div class="step-number">1</div>
+                <div class="step-icon">
+                    <i class="fas fa-plus-circle"></i>
+                </div>
+                <h3 class="step-title">Create a Room</h3>
+                <p class="step-description">Create your own virtual room and customize the settings</p>
             </div>
-            <div class="card-body">
-                <a href="{% url 'rooms:create_room' %}" class="btn btn-primary w-100 mb-2">Create Room</a>
-                <a href="{% url 'rooms:user_rooms' %}" class="btn btn-outline-primary w-100">My Rooms</a>
+            
+            <div class="step-item">
+                <div class="step-number">2</div>
+                <div class="step-icon">
+                    <i class="fas fa-link"></i>
+                </div>
+                <h3 class="step-title">Share the Link</h3>
+                <p class="step-description">Invite friends by sharing your room link or password</p>
+            </div>
+            
+            <div class="step-item">
+                <div class="step-number">3</div>
+                <div class="step-icon">
+                    <i class="fas fa-play-circle"></i>
+                </div>
+                <h3 class="step-title">Start Watching</h3>
+                <p class="step-description">Sync videos, chat, and share screens in real-time</p>
+            </div>
+            
+            <div class="step-item">
+                <div class="step-number">4</div>
+                <div class="step-icon">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <h3 class="step-title">Enjoy Together</h3>
+                <p class="step-description">Experience movies and videos with friends like you're in the same room</p>
             </div>
         </div>
-        {% endif %}
     </div>
-</div>
+</section>
+
+<section class="features-section">
+    <div class="container">
+        <div class="section-header">
+            <h2 class="section-title">Powerful Features</h2>
+            <p class="section-subtitle">Everything you need for the perfect watch party</p>
+        </div>
+        
+        <div class="features-grid">
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-sync-alt"></i>
+                </div>
+                <h3>Sync Playback</h3>
+                <p>Perfectly synchronized video playback for all participants</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-desktop"></i>
+                </div>
+                <h3>Screen Sharing</h3>
+                <p>Share your screen with other room participants</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-comment-dots"></i>
+                </div>
+                <h3>Live Chat</h3>
+                <p>Real-time messaging while watching videos</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-lock"></i>
+                </div>
+                <h3>Private Rooms</h3>
+                <p>Password-protected rooms for private viewing</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-user-friends"></i>
+                </div>
+                <h3>User Management</h3>
+                <p>Control who can join and participate in your rooms</p>
+            </div>
+            
+            <div class="feature-item">
+                <div class="feature-icon">
+                    <i class="fas fa-mobile-alt"></i>
+                </div>
+                <h3>Mobile Friendly</h3>
+                <p>Works perfectly on all devices and screen sizes</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="cta-section">
+    <div class="container">
+        <div class="cta-content">
+            <h2 class="cta-title">Ready to Start Watching Together?</h2>
+            <p class="cta-subtitle">Have fun with your friends with SyncStream</p>
+            <div class="cta-buttons">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'rooms:create_room' %}" class="btn btn-primary cta-btn">
+                        <i class="fas fa-plus-circle me-2"></i>Create Your First Room
+                    </a>
+                    <a href="{% url 'rooms:user_rooms' %}" class="btn btn-outline-secondary cta-btn">
+                        <i class="fas fa-film me-2"></i>View My Rooms
+                    </a>
+                {% else %}
+                    <a href="{% url 'signup' %}" class="btn btn-primary cta-btn">
+                        <i class="fas fa-user-plus me-2"></i>Sign Up Free
+                    </a>
+                    <a href="{% url 'login' %}" class="btn btn-outline-secondary cta-btn">
+                        <i class="fas fa-sign-in-alt me-2"></i>Login
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    
+    document.querySelector('.hero-scroll').addEventListener('click', function() {
+        document.querySelector('#how-it-works').scrollIntoView({
+            behavior: 'smooth'
+        });
+    });
+</script>
+
 {% endblock %}

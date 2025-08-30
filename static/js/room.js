@@ -635,6 +635,24 @@ function userLeft(username) {
     showNotification(`${username} left the room`, 'warning');
 }
 
+function isValidVideoUrl(url) {
+    const patterns = [
+        /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/,
+        /^(https?:\/\/)?(www\.)?vimeo\.com\/.+/,
+        /^(https?:\/\/).+\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?.*)?$/i
+    ];
+    
+    return patterns.some(pattern => pattern.test(url));
+}
+
+function loadVideo() {
+    const url = videoUrlInput.value.trim();
+    if (url && isValidVideoUrl(url)) {
+    } else {
+        showNotification('Please enter a valid YouTube, Vimeo, or video file URL', 'error');
+    }
+}
+
 function showNotification(message, type = 'info') {
     document.querySelectorAll('.notification-container').forEach(alert => alert.remove());
     

@@ -13,6 +13,37 @@ def home(request):
     return render(request, 'rooms/home.html', {'rooms': rooms})
 
 @login_required
+def join_by_password(request):
+    if request.method == 'POST':
+        password = request.POST.get('password')
+        room_id = request.POST.get('room_id')
+        
+        try:
+            room = Room.objects.get(id=room_id, is_active=True)
+            
+            if room.check_password(password):
+                participant, created = Participant.objects.get_or_create(
+                    room=room, 
+                    user=request.user,
+                    defaults={'is_online': True}
+                )
+                
+                if not created:
+                    participant.is_online = True
+                    participant.save()
+                
+                messages.success(request, f'Successfully joined room "{room.name}"')
+                return redirect('rooms:room_detail', room_id=room.id)
+            else:
+                messages.error(request, 'Invalid password')
+        except Room.DoesNotExist:
+            messages.error(request, 'Room not found or inactive')
+        except ValueError:
+            messages.error(request, 'Invalid room ID format')
+    
+    return render(request, 'rooms/join_by_password.html')
+
+@login_required
 def room_detail(request, room_id):
     room = get_object_or_404(Room, id=room_id)
     
@@ -24,6 +55,8 @@ def room_detail(request, room_id):
             messages.error(request, 'This room no longer exists.')
             return redirect('home')
     
+    password = request.GET.get('password')
+    
     if room.is_private:
         if request.method == 'POST':
             password = request.POST.get('password')
@@ -33,10 +66,17 @@ def room_detail(request, room_id):
                     'room': room,
                     'error': error_message
                 })
+        elif password:
+            can_join, error_message = room.can_user_join(request.user, password)
+            if not can_join:
+                return render(request, 'rooms/room_password.html', {
+                    'room': room,
+                    'error': error_message
+                })
         else:
             return render(request, 'rooms/room_password.html', {'room': room})
     
-    can_join, error_message = room.can_user_join(request.user)
+    can_join, error_message = room.can_user_join(request.user, password)
     if not can_join:
         messages.error(request, error_message)
         return redirect('home')
@@ -53,10 +93,16 @@ def room_detail(request, room_id):
     
     messages_list = Message.objects.filter(room=room).order_by('created_at')[:50]
     
+    invite_info = None
+    if room.creator == request.user:
+        invite_info = room.get_invite_link(request)
+    
     return render(request, 'rooms/room_detail.html', {
         'room': room,
         'messages': messages_list,
         'user': request.user,
+        'invite_info': invite_info,
+        'isRoomCreator': room.creator == request.user,
     })
 
 @login_required
@@ -66,8 +112,23 @@ def create_room(request):
         if form.is_valid():
             room = form.save(commit=False)
             room.creator = request.user
+            
+            plain_password = None
+            if room.is_private:
+                plain_password = room.set_password()
+            
             room.save()
-            messages.success(request, f'Room "{room.name}" created successfully!')
+            
+            if room.is_private and plain_password:
+                messages.success(
+                    request, 
+                    f'Room "{room.name}" created successfully! '
+                    f'Password: {plain_password} - '
+                    f'Share the invite link with others to join easily.'
+                )
+            else:
+                messages.success(request, f'Room "{room.name}" created successfully!')
+            
             return redirect('rooms:room_detail', room_id=room.id)
     else:
         form = RoomForm()
@@ -75,7 +136,7 @@ def create_room(request):
     return render(request, 'rooms/room_form.html', {
         'form': form,
         'editing': False,
-        })
+    })
 
 @login_required
 def edit_room(request, room_id):
@@ -84,7 +145,20 @@ def edit_room(request, room_id):
     if request.method == 'POST':
         form = RoomForm(request.POST, instance=room)
         if form.is_valid():
-            form.save()
+            was_private = room.is_private
+            room = form.save(commit=False)
+            
+            if room.is_private and not was_private:
+                plain_password = room.set_password()
+                room.save()
+                messages.info(request, f'New password generated: {plain_password}')
+            elif was_private and not room.is_private:
+                room.password = None
+                room.save()
+                messages.info(request, 'Room is now public - password removed')
+            else:
+                room.save()
+            
             messages.success(request, f'Room "{room.name}" updated successfully!')
             return redirect('rooms:room_detail', room_id=room.id)
     else:
@@ -93,7 +167,7 @@ def edit_room(request, room_id):
     return render(request, 'rooms/room_form.html', {
         'form': form,
         'editing': True,
-        })
+    })
 
 @login_required
 def delete_room(request, room_id):

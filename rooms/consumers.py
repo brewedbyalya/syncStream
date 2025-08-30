@@ -17,7 +17,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
         self.user = self.scope['user']
 
         if not self.user.is_authenticated:
-            await self.close()
+            await self.close(code=4003)
             return
 
         await self.channel_layer.group_add(
@@ -27,24 +27,53 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
         try:
             room = await self.get_room()
-            if room and room.is_active:
-                await self.add_participant(room)
-                await self.update_user_online_status(True)
-                await self.update_participant_online_status(True)
-                await self.accept()
-                
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'user_joined',
-                        'user_id': self.user.id,
-                        'username': self.user.username,
-                    }
-                )
-            else:
+            if not room:
+                logger.warning(f"Room {self.room_id} not found")
                 await self.close(code=4001)
+                return
+                
+            if not room.is_active:
+                logger.warning(f"Room {self.room_id} is not active")
+                await self.close(code=4001)
+                return
+
+            if room.is_private:
+                has_access = await self.check_room_access(room)
+                if not has_access:
+                    logger.warning(f"User {self.user.id} denied access to private room {self.room_id}")
+                    await self.close(code=4003)
+                    return
+
+            is_full = await self.is_room_full(room)
+            if is_full:
+                logger.warning(f"Room {self.room_id} is full")
+                await self.close(code=4004)
+                return
+
+            participant_added = await self.add_participant(room)
+            if not participant_added:
+                logger.error(f"Failed to add participant {self.user.id} to room {self.room_id}")
+                await self.close(code=4002)
+                return
+                
+            await self.update_user_online_status(True)
+            await self.update_participant_online_status(True)
+            
+            await self.accept()
+            
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'user_joined',
+                    'user_id': self.user.id,
+                    'username': self.user.username,
+                }
+            )
+            
+            logger.info(f"User {self.user.username} connected to room {self.room_id}")
+            
         except Exception as e:
-            logger.error(f"Error connecting to room: {e}")
+            logger.error(f"Error connecting to room {self.room_id}: {str(e)}")
             await self.close(code=4002)
 
     async def disconnect(self, close_code):
@@ -62,8 +91,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
                         'username': self.user.username,
                     }
                 )
+                
+                logger.info(f"User {self.user.username} disconnected from room {self.room_id}")
             except Exception as e:
-                logger.error(f"Error during disconnect: {e}")
+                logger.error(f"Error during disconnect: {str(e)}")
 
         try:
             await self.channel_layer.group_discard(
@@ -71,7 +102,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 self.channel_name
             )
         except Exception as e:
-            logger.error(f"Error leaving group: {e}")
+            logger.error(f"Error leaving group: {str(e)}")
 
     async def receive(self, text_data):
         try:
@@ -90,6 +121,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 await self.handle_webrtc_signal(data)
             else:
                 logger.warning(f"Unknown message type: {message_type}")
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': f'Unknown message type: {message_type}'
+                }))
                 
         except json.JSONDecodeError:
             logger.error("Invalid JSON received")
@@ -98,7 +133,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 'message': 'Invalid JSON format'
             }))
         except Exception as e:
-            logger.error(f"Error processing message: {e}")
+            logger.error(f"Error processing message: {str(e)}")
             await self.send(text_data=json.dumps({
                 'type': 'error',
                 'message': 'Internal server error'
@@ -109,24 +144,48 @@ class RoomConsumer(AsyncWebsocketConsumer):
             message = data.get('message', '').strip()
             
             if not message:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Message cannot be empty'
+                }))
+                return
+                
+            # Check message length
+            if len(message) > 1000:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Message too long (max 1000 characters)'
+                }))
                 return
                 
             room = await self.get_room()
-            if room and room.allow_chat:
-                await self.save_message(room, message)
+            if not room:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Room not found'
+                }))
+                return
                 
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'chat_message',
-                        'message': message,
-                        'user_id': self.user.id,
-                        'username': self.user.username,
-                        'timestamp': timezone.now().isoformat(),
-                    }
-                )
+            if room and room.allow_chat:
+                saved_message = await self.save_message(room, message)
+                if saved_message:
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'chat_message',
+                            'message': message,
+                            'user_id': self.user.id,
+                            'username': self.user.username,
+                            'timestamp': timezone.now().isoformat(),
+                            'message_id': str(saved_message.id),
+                        }
+                    )
         except Exception as e:
-            logger.error(f"Error handling chat message: {e}")
+            logger.error(f"Error handling chat message: {str(e)}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Error sending message'
+            }))
 
     async def handle_video_control(self, data):
         try:
@@ -152,7 +211,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                     }
                 )
         except Exception as e:
-            logger.error(f"Error handling video control: {e}")
+            logger.error(f"Error handling video control: {str(e)}")
 
     async def handle_screen_share(self, data):
         try:
@@ -162,15 +221,16 @@ class RoomConsumer(AsyncWebsocketConsumer):
             if room and room.allow_screen_share:
                 if action == 'start':
                     session = await self.create_screen_session(room)
-                    await self.channel_layer.group_send(
-                        self.room_group_name,
-                        {
-                            'type': 'screen_share_started',
-                            'user_id': self.user.id,
-                            'username': self.user.username,
-                            'session_id': str(session.id),
-                        }
-                    )
+                    if session:
+                        await self.channel_layer.group_send(
+                            self.room_group_name,
+                            {
+                                'type': 'screen_share_started',
+                                'user_id': self.user.id,
+                                'username': self.user.username,
+                                'session_id': str(session.id),
+                            }
+                        )
                 elif action == 'stop':
                     await self.end_screen_session()
                     await self.channel_layer.group_send(
@@ -182,7 +242,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                         }
                     )
         except Exception as e:
-            logger.error(f"Error handling screen share: {e}")
+            logger.error(f"Error handling screen share: {str(e)}")
 
     async def handle_ping(self, data):
         try:
@@ -193,23 +253,35 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 'server_time': time.time()
             }))
         except Exception as e:
-            logger.error(f"Error handling ping: {e}")
+            logger.error(f"Error handling ping: {str(e)}")
 
     async def handle_webrtc_signal(self, data):
         try:
             webrtc_data = data.get('data', {})
+            target_user_id = webrtc_data.get('toUserId')
             
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'webrtc_signal',
-                    'data': webrtc_data,
-                    'user_id': self.user.id,
-                    'username': self.user.username,
-                }
-            )
+            if target_user_id:
+                await self.channel_layer.group_send(
+                    f"user_{target_user_id}",
+                    {
+                        'type': 'webrtc_signal',
+                        'data': webrtc_data,
+                        'user_id': self.user.id,
+                        'username': self.user.username,
+                    }
+                )
+            else:
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'webrtc_signal',
+                        'data': webrtc_data,
+                        'user_id': self.user.id,
+                        'username': self.user.username,
+                    }
+                )
         except Exception as e:
-            logger.error(f"Error handling WebRTC signal: {e}")
+            logger.error(f"Error handling WebRTC signal: {str(e)}")
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
@@ -218,6 +290,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'user_id': event['user_id'],
             'username': event['username'],
             'timestamp': event.get('timestamp', ''),
+            'message_id': event.get('message_id', ''),
         }))
 
     async def video_control(self, event):
@@ -239,7 +312,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 'latency': round(latency, 3)
             }))
         except Exception as e:
-            logger.error(f"Error sending video control: {e}")
+            logger.error(f"Error sending video control: {str(e)}")
 
     async def screen_share_started(self, event):
         await self.send(text_data=json.dumps({
@@ -271,7 +344,6 @@ class RoomConsumer(AsyncWebsocketConsumer):
         }))
 
     async def webrtc_signal(self, event):
-        """Send WebRTC signal to client"""
         try:
             await self.send(text_data=json.dumps({
                 'type': 'webrtc_signal',
@@ -280,17 +352,42 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 'username': event['username'],
             }))
         except Exception as e:
-            logger.error(f"Error sending WebRTC signal: {e}")
+            logger.error(f"Error sending WebRTC signal: {str(e)}")
 
     @database_sync_to_async
     def get_room(self):
         try:
-            return Room.objects.get(id=self.room_id, is_active=True)
+            return Room.objects.get(id=self.room_id)
         except Room.DoesNotExist:
             return None
         except Exception as e:
-            logger.error(f"Error getting room: {e}")
+            logger.error(f"Error getting room {self.room_id}: {str(e)}")
             return None
+
+    @database_sync_to_async
+    def check_room_access(self, room):
+        try:
+            is_participant = Participant.objects.filter(
+                room=room, 
+                user=self.user, 
+                is_online=True
+            ).exists()
+            
+            is_creator = room.creator == self.user
+            
+            return is_participant or is_creator
+        except Exception as e:
+            logger.error(f"Error checking room access: {str(e)}")
+            return False
+
+    @database_sync_to_async
+    def is_room_full(self, room):
+        try:
+            online_count = room.participants.filter(is_online=True).count()
+            return online_count >= room.max_users
+        except Exception as e:
+            logger.error(f"Error checking room capacity: {str(e)}")
+            return True
 
     @database_sync_to_async
     def add_participant(self, room):
@@ -305,7 +402,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 participant.save()
             return participant
         except Exception as e:
-            logger.error(f"Error adding participant: {e}")
+            logger.error(f"Error adding participant: {str(e)}")
             return None
 
     @database_sync_to_async
@@ -314,10 +411,13 @@ class RoomConsumer(AsyncWebsocketConsumer):
             participant = Participant.objects.get(room_id=self.room_id, user=self.user)
             participant.is_online = False
             participant.save()
+            return True
         except Participant.DoesNotExist:
             logger.warning(f"Participant not found for user {self.user.id} in room {self.room_id}")
+            return False
         except Exception as e:
-            logger.error(f"Error removing participant: {e}")
+            logger.error(f"Error removing participant: {str(e)}")
+            return False
 
     @database_sync_to_async
     def update_user_online_status(self, is_online):
@@ -326,8 +426,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 self.user.update_activity()
             else:
                 self.user.set_offline()
+            return True
         except Exception as e:
-            logger.error(f"Error updating user online status: {e}")
+            logger.error(f"Error updating user online status: {str(e)}")
+            return False
 
     @database_sync_to_async
     def update_participant_online_status(self, is_online):
@@ -335,10 +437,13 @@ class RoomConsumer(AsyncWebsocketConsumer):
             participant = Participant.objects.get(room_id=self.room_id, user=self.user)
             participant.is_online = is_online
             participant.save(update_fields=['is_online'])
+            return True
         except Participant.DoesNotExist:
             logger.warning(f"Participant not found for user {self.user.id} in room {self.room_id}")
+            return False
         except Exception as e:
-            logger.error(f"Error updating participant online status: {e}")
+            logger.error(f"Error updating participant online status: {str(e)}")
+            return False
 
     @database_sync_to_async
     def save_message(self, room, message):
@@ -350,7 +455,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 message_type='text'
             )
         except Exception as e:
-            logger.error(f"Error saving message: {e}")
+            logger.error(f"Error saving message: {str(e)}")
             return None
 
     @database_sync_to_async
@@ -359,7 +464,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             if url and url != room.current_video_url:
                 room.current_video_url = url
             
-            valid_actions = ['play', 'pause', 'load', 'sync']
+            valid_actions = ['play', 'pause', 'load', 'sync', 'seek']
             if action in valid_actions:
                 room.video_state = action
             
@@ -368,8 +473,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
             
             room.last_video_update = timezone.now()
             room.save()
+            return True
         except Exception as e:
-            logger.error(f"Error updating video state: {e}")
+            logger.error(f"Error updating video state: {str(e)}")
+            return False
 
     @database_sync_to_async
     def create_screen_session(self, room):
@@ -386,7 +493,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 is_active=True
             )
         except Exception as e:
-            logger.error(f"Error creating screen session: {e}")
+            logger.error(f"Error creating screen session: {str(e)}")
             return None
 
     @database_sync_to_async
@@ -397,5 +504,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 user=self.user, 
                 is_active=True
             ).update(is_active=False, ended_at=timezone.now())
+            return True
         except Exception as e:
-            logger.error(f"Error ending screen session: {e}")
+            logger.error(f"Error ending screen session: {str(e)}")
+            return False

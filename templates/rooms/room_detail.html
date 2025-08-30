@@ -3,7 +3,13 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 mobile-stack">
-    <h2 class="text-shadow">{{ room.name }}</h2>
+    <div>
+        <h2 class="text-shadow mb-1">{{ room.name }}</h2>
+        <p class="text-muted mb-0">
+            Created by {{ room.creator.username }} • 
+            <span id="online-count">{{ room.get_online_users_count }}</span> online
+        </p>
+    </div>
     <div class="d-flex mobile-stack mobile-margin">
         {% if room.creator == user %}
             <a href="{% url 'rooms:edit_room' room.id %}" class="btn btn-outline-primary btn-sm me-2">
@@ -25,15 +31,19 @@
             <div class="card-header">
                 <div class="d-flex justify-content-between align-items-center">
                     <span><i class="fas fa-play-circle me-2"></i>Video Player</span>
-                    <span id="online-count" class="badge badge-gradient">{{ room.get_online_users_count }} online</span>
+                    <div>
+                        <span class="badge badge-gradient me-2" id="connection-status">Connected</span>
+                        <span class="badge bg-secondary" id="online-count-badge">{{ room.get_online_users_count }} online</span>
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0">
                 <div class="video-container-wrapper">
                     <div id="video-container" class="bg-dark">
                         <div id="player-placeholder" class="d-flex flex-column justify-content-center align-items-center text-white h-100">
-                            <i class="fas fa-play-circle fa-3x mb-3"></i>
-                            <p class="text-center">No video playing<br><small class="text-muted">Enter a URL below to get started</small></p>
+                            <i class="fas fa-play-circle fa-3x mb-3 text-muted"></i>
+                            <p class="text-center mb-1">No video playing</p>
+                            <small class="text-muted">Enter a URL below to get started</small>
                         </div>
                     </div>
                     
@@ -41,10 +51,24 @@
                 </div>
                 
                 <div class="video-controls d-none video-controls-glass" id="video-controls">
-                    <button id="play-btn" title="Play"><i class="fas fa-play"></i></button>
-                    <button id="pause-btn" title="Pause"><i class="fas fa-pause"></i></button>
-                    <button id="sync-btn" title="Sync with others"><i class="fas fa-sync"></i></button>
-                    <button id="fullscreen-btn" title="Fullscreen"><i class="fas fa-expand"></i></button>
+                    <button id="play-btn" title="Play" class="btn-control">
+                        <i class="fas fa-play"></i>
+                    </button>
+                    <button id="pause-btn" title="Pause" class="btn-control">
+                        <i class="fas fa-pause"></i>
+                    </button>
+                    <button id="sync-btn" title="Sync with others" class="btn-control">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                    <button id="fullscreen-btn" title="Fullscreen" class="btn-control">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                    <div class="video-info ms-2">
+                        <small class="text-light">
+                            <span id="video-type-display">None</span> • 
+                            Latency: <span id="latency-display">0ms</span>
+                        </small>
+                    </div>
                 </div>
             </div>
             
@@ -69,39 +93,72 @@
                 <i class="fas fa-desktop me-2"></i>Screen Sharing
             </div>
             <div class="card-body">
-                <button id="start-screen-share" class="btn btn-primary">
+                <button id="start-screen-share" class="btn btn-primary me-2">
                     <i class="fas fa-desktop me-2"></i>Start Screen Share
                 </button>
                 <button id="stop-screen-share" class="btn btn-danger d-none">
                     <i class="fas fa-stop me-2"></i>Stop Screen Share
                 </button>
+                <div class="mt-2">
+                    <small class="text-muted">Share your screen with other participants</small>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if isRoomCreator and invite_info %}
+        <div class="card card-gradient mt-3">
+            <div class="card-header">
+                <h5><i class="fas fa-share-alt me-2"></i>Invite Others</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">Share this link to invite others to your room:</p>
+                <div class="input-group mb-3">
+                    <input type="text" class="form-control" value="{{ invite_info }}" id="inviteLink" readonly>
+                    <button class="btn btn-primary" onclick="copyInviteLink()">
+                        <i class="fas fa-copy me-1"></i>Copy
+                    </button>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    This link contains the room password. Anyone with this link can join your room.
+                </div>
             </div>
         </div>
         {% endif %}
 
         <div class="card card-gradient mt-3">
             <div class="card-header">
-                <i class="fas fa-info-circle me-2"></i>Room Status
+                <i class="fas fa-info-circle me-2"></i>Room Information
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-6">
-                        <small class="text-muted">Connection:</small>
-                        <span id="connection-status" class="badge badge-gradient">Good</span>
+                    <div class="col-md-6 mb-2">
+                        <strong>Status:</strong>
+                        <span class="badge bg-{% if room.is_active %}success{% else %}danger{% endif %}">
+                            {% if room.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
                     </div>
-                    <div class="col-md-6">
-                        <small class="text-muted">Latency:</small>
-                        <span id="latency-display">0ms</span>
+                    <div class="col-md-6 mb-2">
+                        <strong>Privacy:</strong>
+                        <span class="badge bg-{% if room.is_private %}warning{% else %}info{% endif %}">
+                            {% if room.is_private %}Private{% else %}Public{% endif %}
+                        </span>
                     </div>
-                </div>
-                <div class="row mt-2">
-                    <div class="col-md-6">
-                        <small class="text-muted">Video Sync:</small>
-                        <span id="sync-status" class="badge badge-gradient">Synced</span>
+                    <div class="col-md-6 mb-2">
+                        <strong>Screen Share:</strong>
+                        <span class="badge bg-{% if room.allow_screen_share %}success{% else %}secondary{% endif %}">
+                            {% if room.allow_screen_share %}Enabled{% else %}Disabled{% endif %}
+                        </span>
                     </div>
-                    <div class="col-md-6">
-                        <small class="text-muted">Video Type:</small>
-                        <span id="video-type-display">None</span>
+                    <div class="col-md-6 mb-2">
+                        <strong>Chat:</strong>
+                        <span class="badge bg-{% if room.allow_chat %}success{% else %}secondary{% endif %}">
+                            {% if room.allow_chat %}Enabled{% else %}Disabled{% endif %}
+                        </span>
+                    </div>
+                    <div class="col-md-12">
+                        <strong>Max Users:</strong> {{ room.max_users }}
                     </div>
                 </div>
             </div>
@@ -118,9 +175,16 @@
                 <div id="chat-messages" class="chat-messages chat-messages-glass custom-scrollbar">
                     {% for message in messages %}
                     <div class="mb-2 message {% if message.user == user %}message-self{% elif message.user.username == 'System' %}message-system{% else %}message-other{% endif %} fade-in">
-                        <strong class="text-primary">{{ message.user.username }}:</strong> 
+                        <strong class="{% if message.user == user %}text-primary{% elif message.user.username == 'System' %}text-warning{% else %}text-info{% endif %}">
+                            {{ message.user.username }}:
+                        </strong> 
                         {{ message.message }}
                         <small class="text-muted ms-2">{{ message.created_at|time }}</small>
+                    </div>
+                    {% empty %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-comments fa-2x mb-2"></i>
+                        <p>No messages yet. Start the conversation!</p>
                     </div>
                     {% endfor %}
                 </div>
@@ -147,6 +211,9 @@
                     <button class="btn btn-outline-info" onclick="copyVideoUrl()">
                         <i class="fas fa-video me-2"></i>Copy Video URL
                     </button>
+                    <button class="btn btn-outline-secondary" onclick="showKeyboardShortcuts()">
+                        <i class="fas fa-keyboard me-2"></i>Keyboard Shortcuts
+                    </button>
                     {% if room.creator == user %}
                     <a href="{% url 'rooms:edit_room' room.id %}" class="btn btn-outline-warning">
                         <i class="fas fa-cog me-2"></i>Room Settings
@@ -155,47 +222,62 @@
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
-<div class="card card-gradient mt-4">
-    <div class="card-header">
-        <i class="fas fa-users me-2"></i>Participants ({{ room.participants.count }})
-    </div>
-    <div class="card-body">
-        <div class="participants-grid">
-            {% for participant in room.participants.all %}
-            <div class="participant-card {% if participant.is_online %}participant-card-online{% else %}participant-card-offline{% endif %} {% if participant.user == room.creator %}participant-card-creator{% endif %} slide-in-right">
-                <i class="fas fa-user me-1"></i> 
-                <strong>{{ participant.user.username }}</strong>
-                {% if participant.user == room.creator %}
-                <div class="text-warning small">
-                    <i class="fas fa-crown" title="Room Creator"></i> Creator
-                </div>
-                {% endif %}
-                <div class="small">
-                    {% if participant.is_online %}
-                    <span class="status-online" title="Online">● Online</span>
-                    {% else %}
-                    <span class="status-offline" title="Offline">● Offline</span>
-                    {% endif %}
+        <div class="card card-gradient mt-3">
+            <div class="card-header">
+                <i class="fas fa-users me-2"></i>Participants ({{ room.participants.count }})
+            </div>
+            <div class="card-body">
+                <div class="participants-grid">
+                    {% for participant in room.participants.all %}
+                    <div class="participant-card {% if participant.is_online %}participant-card-online{% else %}participant-card-offline{% endif %} {% if participant.user == room.creator %}participant-card-creator{% endif %} slide-in-right">
+                        <div class="participant-avatar">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <strong class="participant-name">{{ participant.user.username }}</strong>
+                        {% if participant.user == room.creator %}
+                        <div class="text-warning small">
+                            <i class="fas fa-crown" title="Room Creator"></i> Creator
+                        </div>
+                        {% endif %}
+                        <div class="small">
+                            {% if participant.is_online %}
+                            <span class="status-online" title="Online">● Online</span>
+                            {% else %}
+                            <span class="status-offline" title="Offline">● Offline</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
             </div>
-            {% endfor %}
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="videoInfoModal" tabindex="-1">
+<div class="modal fade" id="keyboardShortcutsModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content card-glass">
             <div class="modal-header">
-                <h5 class="modal-title">Video Information</h5>
+                <h5 class="modal-title">Keyboard Shortcuts</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="video-info-content">
-                    <p>No video information available.</p>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">Space</span>
+                    <span class="shortcut-description">Play/Pause video</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">F</span>
+                    <span class="shortcut-description">Toggle fullscreen</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">S</span>
+                    <span class="shortcut-description">Sync video with others</span>
+                </div>
+                <div class="shortcut-item">
+                    <span class="shortcut-key">Enter</span>
+                    <span class="shortcut-description">Send chat message</span>
                 </div>
             </div>
             <div class="modal-footer">
@@ -219,20 +301,39 @@
 <script src="{% static 'js/room.js' %}"></script>
 <script src="{% static 'js/webrtc.js' %}"></script>
 <script>
-function toggleFullscreen() {
-    const videoContainer = document.getElementById('video-container');
-    
-    if (!document.fullscreenElement) {
-        if (videoContainer.requestFullscreen) {
-            videoContainer.requestFullscreen().catch(err => {
-                console.error('Error attempting to enable fullscreen:', err);
-            });
-        }
+function copyInviteLink() {
+    const copyText = document.getElementById("inviteLink");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    document.execCommand("copy");
+    showNotification("Invite link copied to clipboard!", "success");
+}
+
+function copyRoomUrl() {
+    navigator.clipboard.writeText(roomUrl).then(() => {
+        showNotification('Room link copied to clipboard!', 'success');
+    }).catch(err => {
+        console.error('Failed to copy room URL:', err);
+        showNotification('Failed to copy room link', 'error');
+    });
+}
+
+function copyVideoUrl() {
+    const videoUrl = document.getElementById('video-url-input').value;
+    if (videoUrl) {
+        navigator.clipboard.writeText(videoUrl).then(() => {
+            showNotification('Video URL copied to clipboard!', 'success');
+        }).catch(err => {
+            console.error('Failed to copy video URL:', err);
+            showNotification('Failed to copy video URL', 'error');
+        });
     } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
+        showNotification('No video URL to copy', 'warning');
     }
+}
+
+function showKeyboardShortcuts() {
+    new bootstrap.Modal(document.getElementById('keyboardShortcutsModal')).show();
 }
 
 function showNotification(message, type = 'info') {
@@ -282,59 +383,15 @@ function handleFullscreenChange() {
     }
 }
 
-function copyRoomUrl() {
-    navigator.clipboard.writeText(roomUrl).then(() => {
-        showNotification('Room link copied to clipboard!', 'success');
-    }).catch(err => {
-        console.error('Failed to copy room URL:', err);
-        showNotification('Failed to copy room link', 'error');
-    });
-}
-
-function copyVideoUrl() {
-    const videoUrl = document.getElementById('video-url-input').value;
-    if (videoUrl) {
-        navigator.clipboard.writeText(videoUrl).then(() => {
-            showNotification('Video URL copied to clipboard!', 'success');
-        }).catch(err => {
-            console.error('Failed to copy video URL:', err);
-            showNotification('Failed to copy video URL', 'error');
-        });
-    } else {
-        showNotification('No video URL to copy', 'warning');
-    }
-}
-
-function showVideoInfo() {
-    const videoUrl = document.getElementById('video-url-input').value;
-    const modalContent = document.getElementById('video-info-content');
-    
-    if (videoUrl) {
-        const videoInfo = extractVideoId(videoUrl);
-        if (videoInfo) {
-            modalContent.innerHTML = `
-                <p><strong>URL:</strong> ${videoUrl}</p>
-                <p><strong>Type:</strong> ${videoInfo.type}</p>
-                <p><strong>ID:</strong> ${videoInfo.id}</p>
-                <p><strong>Status:</strong> Loaded successfully</p>
-            `;
-        } else {
-            modalContent.innerHTML = `<p>Unable to parse video URL.</p>`;
-        }
-    } else {
-        modalContent.innerHTML = `<p>No video URL entered.</p>`;
-    }
-    
-    new bootstrap.Modal(document.getElementById('videoInfoModal')).show();
-}
-
 document.addEventListener('keydown', function(e) {
     if (e.code === 'Space' && !e.target.matches('input, textarea')) {
         e.preventDefault();
-        if (isPlaying) {
-            pauseVideo();
-        } else {
-            playVideo();
+        if (typeof playVideo === 'function' && typeof pauseVideo === 'function') {
+            if (isPlaying) {
+                pauseVideo();
+            } else {
+                playVideo();
+            }
         }
     }
     
@@ -345,9 +402,27 @@ document.addEventListener('keydown', function(e) {
     
     if (e.code === 'KeyS' && !e.target.matches('input, textarea')) {
         e.preventDefault();
-        syncVideo();
+        if (typeof syncVideo === 'function') {
+            syncVideo();
+        }
     }
 });
+
+function toggleFullscreen() {
+    const videoContainer = document.getElementById('video-container');
+    
+    if (!document.fullscreenElement) {
+        if (videoContainer.requestFullscreen) {
+            videoContainer.requestFullscreen().catch(err => {
+                console.error('Error attempting to enable fullscreen:', err);
+            });
+        }
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));

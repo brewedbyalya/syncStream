@@ -22,6 +22,16 @@
                         {% endfor %}
                     </div>
                     {% endfor %}
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        {% if editing %}
+                            Changing room privacy will generate a new random password.
+                        {% else %}
+                            Private rooms will automatically generate a secure random password.
+                        {% endif %}
+                    </div>
+                    
                     <button type="submit" class="btn btn-primary">
                         {% if editing %}Update Room{% else %}Create Room{% endif %}
                     </button>

@@ -1,7 +1,10 @@
 from django.db import models
 from django.conf import settings
 import uuid
+import secrets
+import string
 from django.utils import timezone
+from django.contrib.auth.hashers import make_password, check_password
 
 class Room(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -10,7 +13,7 @@ class Room(models.Model):
     creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='created_rooms')
     created_at = models.DateTimeField(auto_now_add=True)
     is_private = models.BooleanField(default=False)
-    password = models.CharField(max_length=50, blank=True, null=True)
+    password = models.CharField(max_length=128, blank=True, null=True)
     max_users = models.PositiveIntegerField(default=10)
     is_active = models.BooleanField(default=True)
     is_locked = models.BooleanField(default=False)
@@ -24,6 +27,42 @@ class Room(models.Model):
     
     def __str__(self):
         return self.name
+    
+    def generate_random_password(self, length=8):
+        alphabet = string.ascii_letters + string.digits
+        return ''.join(secrets.choice(alphabet) for i in range(length))
+    
+    def set_password(self, raw_password=None):
+        if not raw_password:
+            raw_password = self.generate_random_password()
+        
+        self.password = make_password(raw_password)
+        return raw_password
+    
+    def check_password(self, raw_password):
+        if not self.password:
+            return False
+        return check_password(raw_password, self.password)
+    
+    def save(self, *args, **kwargs):
+        if self.is_private and not self.password:
+            plain_password = self.set_password()
+            self._plain_password = plain_password
+        
+        super().save(*args, **kwargs)
+    
+    def get_invite_link(self, request=None):
+        from django.urls import reverse
+        
+        if not request:
+            return f"Room ID: {self.id}"
+        
+        base_url = f"{request.scheme}://{request.get_host()}"
+        room_url = f"{base_url}{reverse('rooms:room_detail', args=[self.id])}"
+        
+        if hasattr(self, '_plain_password'):
+            return f"{room_url}?password={self._plain_password}"
+        return room_url
     
     def get_online_users_count(self):
         return self.participants.filter(is_online=True).count()
@@ -46,7 +85,7 @@ class Room(models.Model):
             return False, "Room is locked"
         
         if self.is_private:
-            if password != self.password:
+            if not self.check_password(password):
                 return False, "Incorrect password"
         
         if self.participants.filter(is_online=True).count() >= self.max_users:
