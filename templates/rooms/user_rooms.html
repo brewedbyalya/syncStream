@@ -5,7 +5,7 @@
 
 <div class="row">
     <div class="col-md-6">
-        <div class="card">
+        <div class="card card-gradient">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h4 class="mb-0">Rooms I Created</h4>
                 <a href="{% url 'rooms:create_room' %}" class="btn btn-primary btn-sm">Create New</a>
@@ -14,8 +14,8 @@
                 {% if created_rooms %}
                 <div class="list-group">
                     {% for room in created_rooms %}
-                    <div class="list-group-item {% if not room.is_active %}list-group-item-secondary{% endif %}">
-                        <div class="d-flex w-100 justify-content-between">
+                        <div class="list-group-item {% if not room.is_active %}list-group-item-secondary{% endif %} card-glass">
+                            <div class="d-flex w-100 justify-content-between">
                             <h5 class="mb-1">
                                 {{ room.name }}
                                 {% if not room.is_active %}
