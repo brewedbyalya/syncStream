@@ -22,7 +22,7 @@
                     {% csrf_token %}
                     <input type="hidden" name="permanent" value="false">
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{% url 'room_detail' room.id %}" class="btn btn-secondary me-md-2">
+                        <a href="{% url 'rooms:room_detail' room.id %}" class="btn btn-secondary me-md-2">
                             Cancel
                         </a>
                         <button type="submit" class="btn btn-danger">
@@ -41,7 +41,7 @@
                                 <i class="fas fa-undo fa-2x text-success mb-2"></i>
                                 <h5>Restore Room</h5>
                                 <p class="text-muted small">Make this room active and available again</p>
-                                <form action="{% url 'restore_room' room.id %}" method="post">
+                                <form action="{% url 'rooms:restore_room' room.id %}" method="post">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-success w-100">
                                         <i class="fas fa-undo me-1"></i>Restore
@@ -71,7 +71,7 @@
                 </div>
                 
                 <div class="text-center mt-3">
-                    <a href="{% url 'user_rooms' %}" class="btn btn-secondary">
+                    <a href="{% url 'rooms:user_rooms' %}" class="btn btn-secondary">
                         <i class="fas fa-arrow-left me-1"></i>Back to My Rooms
                     </a>
                 </div>

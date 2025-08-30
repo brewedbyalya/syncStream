@@ -73,7 +73,7 @@
                 {% if participant_rooms %}
                 <div class="list-group">
                     {% for room in participant_rooms %}
-                    <a href="{% url 'room_detail' room.id %}" class="list-group-item list-group-item-action">
+                    <a href="{% url 'rooms:room_detail' room.id %}" class="list-group-item list-group-item-action">
                         <div class="d-flex w-100 justify-content-between">
                             <h5 class="mb-1">{{ room.name }}</h5>
                             <small>By {{ room.creator.username }}</small>

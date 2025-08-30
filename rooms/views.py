@@ -72,7 +72,10 @@ def create_room(request):
     else:
         form = RoomForm()
     
-    return render(request, 'rooms/room_form.html', {'form': form})
+    return render(request, 'rooms/room_form.html', {
+        'form': form,
+        'editing': False,
+        })
 
 @login_required
 def edit_room(request, room_id):
@@ -87,7 +90,10 @@ def edit_room(request, room_id):
     else:
         form = RoomForm(instance=room)
     
-    return render(request, 'rooms/room_form.html', {'form': form})
+    return render(request, 'rooms/room_form.html', {
+        'form': form,
+        'editing': True,
+        })
 
 @login_required
 def delete_room(request, room_id):

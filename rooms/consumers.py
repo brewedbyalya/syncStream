@@ -85,11 +85,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             elif message_type == 'screen_share':
                 await self.handle_screen_share(data)
             elif message_type == 'ping':
-                await self.send(text_data=json.dumps({
-                    'type': 'pong',
-                    'client_time': data.get('client_time'),
-                    'server_time': time.time()
-                }))
+                await self.handle_ping(data)
             elif message_type == 'webrtc_signal':
                 await self.handle_webrtc_signal(data)
             else:
@@ -97,92 +93,123 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 
         except json.JSONDecodeError:
             logger.error("Invalid JSON received")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Invalid JSON format'
+            }))
         except Exception as e:
             logger.error(f"Error processing message: {e}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Internal server error'
+            }))
 
     async def handle_chat_message(self, data):
-        message = data.get('message', '').strip()
-        
-        if not message:
-            return
+        try:
+            message = data.get('message', '').strip()
             
-        room = await self.get_room()
-        if room and room.allow_chat:
-            await self.save_message(room, message)
-            
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'chat_message',
-                    'message': message,
-                    'user_id': self.user.id,
-                    'username': self.user.username,
-                    'timestamp': timezone.now().isoformat(),
-                }
-            )
+            if not message:
+                return
+                
+            room = await self.get_room()
+            if room and room.allow_chat:
+                await self.save_message(room, message)
+                
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'chat_message',
+                        'message': message,
+                        'user_id': self.user.id,
+                        'username': self.user.username,
+                        'timestamp': timezone.now().isoformat(),
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Error handling chat message: {e}")
 
     async def handle_video_control(self, data):
-        action = data.get('action')
-        timestamp = data.get('timestamp', 0)
-        url = data.get('url', '')
-        
-        room = await self.get_room()
-        if room:
-            server_timestamp = time.time()
-            await self.update_video_state(room, action, timestamp, url, server_timestamp)
+        try:
+            action = data.get('action')
+            timestamp = data.get('timestamp', 0)
+            url = data.get('url', '')
+            
+            room = await self.get_room()
+            if room:
+                server_timestamp = time.time()
+                await self.update_video_state(room, action, timestamp, url, server_timestamp)
+                
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'video_control',
+                        'action': action,
+                        'timestamp': timestamp,
+                        'server_timestamp': server_timestamp,
+                        'url': url,
+                        'user_id': self.user.id,
+                        'username': self.user.username,
+                    }
+                )
+        except Exception as e:
+            logger.error(f"Error handling video control: {e}")
+
+    async def handle_screen_share(self, data):
+        try:
+            action = data.get('action')
+            room = await self.get_room()
+            
+            if room and room.allow_screen_share:
+                if action == 'start':
+                    session = await self.create_screen_session(room)
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'screen_share_started',
+                            'user_id': self.user.id,
+                            'username': self.user.username,
+                            'session_id': str(session.id),
+                        }
+                    )
+                elif action == 'stop':
+                    await self.end_screen_session()
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'screen_share_ended',
+                            'user_id': self.user.id,
+                            'username': self.user.username,
+                        }
+                    )
+        except Exception as e:
+            logger.error(f"Error handling screen share: {e}")
+
+    async def handle_ping(self, data):
+        try:
+            client_time = data.get('client_time')
+            await self.send(text_data=json.dumps({
+                'type': 'pong',
+                'client_time': client_time,
+                'server_time': time.time()
+            }))
+        except Exception as e:
+            logger.error(f"Error handling ping: {e}")
+
+    async def handle_webrtc_signal(self, data):
+        try:
+            webrtc_data = data.get('data', {})
             
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
-                    'type': 'video_control',
-                    'action': action,
-                    'timestamp': timestamp,
-                    'server_timestamp': server_timestamp,
-                    'url': url,
+                    'type': 'webrtc_signal',
+                    'data': webrtc_data,
                     'user_id': self.user.id,
                     'username': self.user.username,
                 }
             )
-
-    async def handle_screen_share(self, data):
-        action = data.get('action')
-        room = await self.get_room()
-        
-        if room and room.allow_screen_share:
-            if action == 'start':
-                session = await self.create_screen_session(room)
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'screen_share_started',
-                        'user_id': self.user.id,
-                        'username': self.user.username,
-                        'session_id': str(session.id),
-                    }
-                )
-            elif action == 'stop':
-                await self.end_screen_session()
-                await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'screen_share_ended',
-                        'user_id': self.user.id,
-                        'username': self.user.username,
-                    }
-                )
-
-    async def handle_webrtc_signal(self, data):
-        webrtc_data = data.get('data', {})
-        
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'webrtc_signal',
-                'data': webrtc_data,
-                'user_id': self.user.id,
-                'username': self.user.username,
-            }
-        )
+        except Exception as e:
+            logger.error(f"Error handling WebRTC signal: {e}")
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
@@ -194,22 +221,25 @@ class RoomConsumer(AsyncWebsocketConsumer):
         }))
 
     async def video_control(self, event):
-        client_timestamp = event['timestamp']
-        server_timestamp = event.get('server_timestamp', 0)
-        current_time = time.time()
-        
-        latency = current_time - server_timestamp if server_timestamp else 0
-        
-        await self.send(text_data=json.dumps({
-            'type': 'video_control',
-            'action': event['action'],
-            'timestamp': event['timestamp'],
-            'url': event['url'],
-            'user_id': event['user_id'],
-            'username': event['username'],
-            'server_timestamp': server_timestamp,
-            'latency': round(latency, 3)
-        }))
+        try:
+            client_timestamp = event['timestamp']
+            server_timestamp = event.get('server_timestamp', 0)
+            current_time = time.time()
+            
+            latency = current_time - server_timestamp if server_timestamp else 0
+            
+            await self.send(text_data=json.dumps({
+                'type': 'video_control',
+                'action': event['action'],
+                'timestamp': event['timestamp'],
+                'url': event['url'],
+                'user_id': event['user_id'],
+                'username': event['username'],
+                'server_timestamp': server_timestamp,
+                'latency': round(latency, 3)
+            }))
+        except Exception as e:
+            logger.error(f"Error sending video control: {e}")
 
     async def screen_share_started(self, event):
         await self.send(text_data=json.dumps({
@@ -241,12 +271,16 @@ class RoomConsumer(AsyncWebsocketConsumer):
         }))
 
     async def webrtc_signal(self, event):
-        await self.send(text_data=json.dumps({
-            'type': 'webrtc_signal',
-            'data': event['data'],
-            'user_id': event['user_id'],
-            'username': event['username'],
-        }))
+        """Send WebRTC signal to client"""
+        try:
+            await self.send(text_data=json.dumps({
+                'type': 'webrtc_signal',
+                'data': event['data'],
+                'user_id': event['user_id'],
+                'username': event['username'],
+            }))
+        except Exception as e:
+            logger.error(f"Error sending WebRTC signal: {e}")
 
     @database_sync_to_async
     def get_room(self):
@@ -254,18 +288,25 @@ class RoomConsumer(AsyncWebsocketConsumer):
             return Room.objects.get(id=self.room_id, is_active=True)
         except Room.DoesNotExist:
             return None
+        except Exception as e:
+            logger.error(f"Error getting room: {e}")
+            return None
 
     @database_sync_to_async
     def add_participant(self, room):
-        participant, created = Participant.objects.get_or_create(
-            room=room, 
-            user=self.user,
-            defaults={'is_online': True}
-        )
-        if not created:
-            participant.is_online = True
-            participant.save()
-        return participant
+        try:
+            participant, created = Participant.objects.get_or_create(
+                room=room, 
+                user=self.user,
+                defaults={'is_online': True}
+            )
+            if not created:
+                participant.is_online = True
+                participant.save()
+            return participant
+        except Exception as e:
+            logger.error(f"Error adding participant: {e}")
+            return None
 
     @database_sync_to_async
     def remove_participant(self):
@@ -274,20 +315,21 @@ class RoomConsumer(AsyncWebsocketConsumer):
             participant.is_online = False
             participant.save()
         except Participant.DoesNotExist:
-            pass
+            logger.warning(f"Participant not found for user {self.user.id} in room {self.room_id}")
+        except Exception as e:
+            logger.error(f"Error removing participant: {e}")
 
     @database_sync_to_async
     def update_user_online_status(self, is_online):
         try:
-            self.user.is_online = is_online
             if is_online:
-                self.user.last_activity = timezone.now()
-            self.user.save(update_fields=['is_online', 'last_activity'])
+                self.user.update_activity()
+            else:
+                self.user.set_offline()
         except Exception as e:
             logger.error(f"Error updating user online status: {e}")
 
-
-    @database_sync_to_async  
+    @database_sync_to_async
     def update_participant_online_status(self, is_online):
         try:
             participant = Participant.objects.get(room_id=self.room_id, user=self.user)
@@ -300,46 +342,60 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
     @database_sync_to_async
     def save_message(self, room, message):
-        return Message.objects.create(
-            room=room,
-            user=self.user,
-            message=message,
-            message_type='text'
-        )
+        try:
+            return Message.objects.create(
+                room=room,
+                user=self.user,
+                message=message,
+                message_type='text'
+            )
+        except Exception as e:
+            logger.error(f"Error saving message: {e}")
+            return None
 
     @database_sync_to_async
     def update_video_state(self, room, action, timestamp, url, server_timestamp=None):
-        if url and url != room.current_video_url:
-            room.current_video_url = url
-        
-        valid_actions = ['play', 'pause', 'load', 'sync']
-        if action in valid_actions:
-            room.video_state = action
-        
-        if timestamp >= 0:
-            room.video_timestamp = timestamp
-        
-        room.last_video_update = timezone.now()
-        room.save()
+        try:
+            if url and url != room.current_video_url:
+                room.current_video_url = url
+            
+            valid_actions = ['play', 'pause', 'load', 'sync']
+            if action in valid_actions:
+                room.video_state = action
+            
+            if timestamp >= 0:
+                room.video_timestamp = timestamp
+            
+            room.last_video_update = timezone.now()
+            room.save()
+        except Exception as e:
+            logger.error(f"Error updating video state: {e}")
 
     @database_sync_to_async
     def create_screen_session(self, room):
-        ScreenSession.objects.filter(
-            room=room, 
-            user=self.user, 
-            is_active=True
-        ).update(is_active=False, ended_at=timezone.now())
-        
-        return ScreenSession.objects.create(
-            room=room,
-            user=self.user,
-            is_active=True
-        )
+        try:
+            ScreenSession.objects.filter(
+                room=room, 
+                user=self.user, 
+                is_active=True
+            ).update(is_active=False, ended_at=timezone.now())
+            
+            return ScreenSession.objects.create(
+                room=room,
+                user=self.user,
+                is_active=True
+            )
+        except Exception as e:
+            logger.error(f"Error creating screen session: {e}")
+            return None
 
     @database_sync_to_async
     def end_screen_session(self):
-        ScreenSession.objects.filter(
-            room_id=self.room_id, 
-            user=self.user, 
-            is_active=True
-        ).update(is_active=False, ended_at=timezone.now())
+        try:
+            ScreenSession.objects.filter(
+                room_id=self.room_id, 
+                user=self.user, 
+                is_active=True
+            ).update(is_active=False, ended_at=timezone.now())
+        except Exception as e:
+            logger.error(f"Error ending screen session: {e}")

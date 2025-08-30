@@ -15,41 +15,68 @@ let chatMessages, chatInput, chatSend, videoUrlInput, loadVideoBtn;
 let playBtn, pauseBtn, syncBtn, startScreenShare, stopScreenShare;
 let screenShareContainer, onlineCount, chatIndicator;
 
+let youTubeAPILoaded = false;
+let youTubeAPILoadCallbacks = [];
+
 let tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
 let firstScriptTag = document.getElementsByTagName('script')[0];
 firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
 function onYouTubeIframeAPIReady() {
-    initializeYouTubePlayer();
+    youTubeAPILoaded = true;
+    youTubeAPILoadCallbacks.forEach(callback => callback());
+    youTubeAPILoadCallbacks = [];
+    console.log('YouTube IFrame API ready');
 }
 
 function initializeYouTubePlayer() {
-    if (typeof YT !== 'undefined' && YT.Player) {
-        player = new YT.Player('youtube-player', {
-            height: '100%',
-            width: '100%',
-            playerVars: {
-                'playsinline': 1,
-                'controls': 1,
-                'modestbranding': 1,
-                'rel': 0,
-                'enablejsapi': 1
-            },
-            events: {
-                'onReady': onPlayerReady,
-                'onStateChange': onPlayerStateChange,
-                'onError': onPlayerError
-            }
-        });
+    if (youTubeAPILoaded && typeof YT !== 'undefined' && YT.Player) {
+        createYouTubePlayer();
     } else {
-        setTimeout(initializeYouTubePlayer, 100);
+        youTubeAPILoadCallbacks.push(createYouTubePlayer);
+        
+        setTimeout(() => {
+            if (!youTubeAPILoaded) {
+                showNotification('YouTube player failed to load. Please refresh the page.', 'error');
+            }
+        }, 5000);
+    }
+}
+
+function createYouTubePlayer() {
+    const youtubePlayerElement = document.getElementById('youtube-player');
+    if (youtubePlayerElement) {
+        try {
+            player = new YT.Player('youtube-player', {
+                height: '100%',
+                width: '100%',
+                playerVars: {
+                    'playsinline': 1,
+                    'controls': 1,
+                    'modestbranding': 1,
+                    'rel': 0,
+                    'enablejsapi': 1
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange,
+                    'onError': onPlayerError
+                }
+            });
+        } catch (error) {
+            console.error('Error creating YouTube player:', error);
+            showNotification('Error creating YouTube player', 'error');
+        }
     }
 }
 
 function onPlayerReady(event) {
     console.log('YouTube player ready');
-    document.getElementById('video-controls').classList.remove('d-none');
+    const videoControls = document.getElementById('video-controls');
+    if (videoControls) {
+        videoControls.classList.remove('d-none');
+    }
 }
 
 function onPlayerStateChange(event) {
@@ -138,8 +165,39 @@ function handleWebSocketMessage(data) {
             userLeft(data.username);
             break;
             
+        case 'webrtc_signal':
+            handleWebRTCSignal(data);
+            break;
+            
+        case 'pong':
+            handlePingPong(data);
+            break;
+            
         default:
             console.log('Unknown message type:', data.type);
+    }
+}
+
+function handleWebRTCSignal(data) {
+    if (typeof webRTCManager !== 'undefined' && webRTCManager && data.user_id !== userId) {
+        webRTCManager.handleSignal(data);
+    }
+}
+
+function handlePingPong(data) {
+    if (data.type === 'pong') {
+        const roundTripTime = Date.now() - data.client_time;
+        videoLatency = roundTripTime / 2000;
+        updateLatencyDisplay(roundTripTime);
+    }
+}
+
+function updateLatencyDisplay(roundTripTime) {
+    const latencyDisplay = document.getElementById('latency-display');
+    if (latencyDisplay) {
+        latencyDisplay.textContent = `${roundTripTime}ms`;
+        latencyDisplay.className = roundTripTime < 100 ? 'text-success' : 
+                                  roundTripTime < 300 ? 'text-warning' : 'text-danger';
     }
 }
 
@@ -180,8 +238,10 @@ function appendMessage(username, message, timestamp) {
     
     const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
     
+    const sanitizedMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    
     messageElement.innerHTML = `
-        <strong class="text-primary">${username}:</strong> ${message}
+        <strong class="text-primary">${username}:</strong> ${sanitizedMessage}
         <small class="text-muted ms-2">${time}</small>
     `;
     
@@ -201,6 +261,7 @@ function sendChatMessage() {
         }));
         chatInput.value = '';
     } else if (!message) {
+        showNotification('Message cannot be empty', 'warning');
     } else {
         showNotification('Not connected to chat', 'warning');
     }
@@ -229,6 +290,8 @@ function loadVideoToPlayer(url) {
     }
     
     const videoContainer = document.getElementById('video-container');
+    if (!videoContainer) return;
+    
     videoContainer.innerHTML = '';
     
     videoType = videoInfo.type;
@@ -248,25 +311,41 @@ function loadVideoToPlayer(url) {
             return;
     }
     
-    document.getElementById('player-placeholder').classList.add('d-none');
-    document.getElementById('video-controls').classList.remove('d-none');
-}
-
-function loadYouTubeVideo(videoId) {
-    const youtubeDiv = document.createElement('div');
-    youtubeDiv.id = 'youtube-player';
-    document.getElementById('video-container').appendChild(youtubeDiv);
+    const videoControls = document.getElementById('video-controls');
+    if (videoControls) {
+        videoControls.classList.remove('d-none');
+    }
     
-    if (typeof YT !== 'undefined' && YT.Player) {
-        if (player) {
-            player.loadVideoById(videoId);
-        } else {
-            initializeYouTubePlayer();
-        }
+    const placeholder = document.getElementById('player-placeholder');
+    if (placeholder) {
+        placeholder.classList.add('d-none');
+    }
+    
+    const videoTypeDisplay = document.getElementById('video-type-display');
+    if (videoTypeDisplay) {
+        videoTypeDisplay.textContent = videoType.charAt(0).toUpperCase() + videoType.slice(1);
     }
 }
 
+function loadYouTubeVideo(videoId) {
+    const videoContainer = document.getElementById('video-container');
+    if (!videoContainer) return;
+    
+    videoContainer.innerHTML = '';
+    
+    const youtubeDiv = document.createElement('div');
+    youtubeDiv.id = 'youtube-player';
+    videoContainer.appendChild(youtubeDiv);
+    
+    initializeYouTubePlayer();
+}
+
 function loadVimeoVideo(videoId) {
+    const videoContainer = document.getElementById('video-container');
+    if (!videoContainer) return;
+    
+    videoContainer.innerHTML = '';
+    
     const iframe = document.createElement('iframe');
     iframe.src = `https://player.vimeo.com/video/${videoId}?autoplay=0&title=0&byline=0&portrait=0`;
     iframe.width = '100%';
@@ -274,23 +353,30 @@ function loadVimeoVideo(videoId) {
     iframe.frameBorder = '0';
     iframe.allowFullscreen = true;
     iframe.allow = 'autoplay; fullscreen';
+    iframe.style.border = 'none';
     
-    document.getElementById('video-container').appendChild(iframe);
+    videoContainer.appendChild(iframe);
 }
 
 function loadGenericVideo(url) {
+    const videoContainer = document.getElementById('video-container');
+    if (!videoContainer) return;
+    
+    videoContainer.innerHTML = '';
+    
     videoElement = document.createElement('video');
     videoElement.id = 'html5-video';
     videoElement.controls = true;
     videoElement.style.width = '100%';
     videoElement.style.height = '100%';
+    videoElement.style.objectFit = 'contain';
     videoElement.crossOrigin = 'anonymous';
     
     const source = document.createElement('source');
     source.src = url;
     videoElement.appendChild(source);
     
-    document.getElementById('video-container').appendChild(videoElement);
+    videoContainer.appendChild(videoElement);
     
     videoElement.addEventListener('play', () => {
         isPlaying = true;
@@ -323,35 +409,60 @@ function loadGenericVideo(url) {
 function playVideo() {
     switch(videoType) {
         case 'youtube':
-            if (player && player.playVideo) player.playVideo();
+            if (player && player.playVideo) {
+                player.playVideo();
+                sendVideoControl('play', player.getCurrentTime());
+            }
             break;
         case 'vimeo':
             showNotification('Vimeo play control not implemented yet', 'info');
             break;
         case 'direct':
-            if (videoElement) videoElement.play();
+            if (videoElement) {
+                videoElement.play();
+                sendVideoControl('play', videoElement.currentTime);
+            }
             break;
     }
-    sendVideoControl('play', currentTime);
 }
 
 function pauseVideo() {
     switch(videoType) {
         case 'youtube':
-            if (player && player.pauseVideo) player.pauseVideo();
+            if (player && player.pauseVideo) {
+                player.pauseVideo();
+                sendVideoControl('pause', player.getCurrentTime());
+            }
             break;
         case 'vimeo':
             showNotification('Vimeo pause control not implemented yet', 'info');
             break;
         case 'direct':
-            if (videoElement) videoElement.pause();
+            if (videoElement) {
+                videoElement.pause();
+                sendVideoControl('pause', videoElement.currentTime);
+            }
             break;
     }
-    sendVideoControl('pause', currentTime);
 }
 
 function syncVideo() {
-    sendVideoControl('sync', currentTime);
+    let currentTimestamp = 0;
+    
+    switch(videoType) {
+        case 'youtube':
+            if (player && player.getCurrentTime) {
+                currentTimestamp = player.getCurrentTime();
+            }
+            break;
+        case 'direct':
+            if (videoElement) {
+                currentTimestamp = videoElement.currentTime;
+            }
+            break;
+    }
+    
+    sendVideoControl('sync', currentTimestamp);
     showNotification('Video synced with other users', 'info');
 }
 
@@ -397,7 +508,6 @@ function handleVideoControl(data) {
         }
     }
 }
-
 
 function executeVideoAction(action, timestamp, username) {
     if (isSyncing) return;
@@ -452,63 +562,55 @@ function calculateLatency() {
     }
 }
 
-function handlePingPong(data) {
-    if (data.type === 'pong') {
-        const roundTripTime = Date.now() - data.client_time;
-        videoLatency = roundTripTime / 2000;
-    }
-}
-
 async function startScreenSharing() {
-    if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
-        roomSocket.send(JSON.stringify({
-            'type': 'screen_share',
-            'action': 'start'
-        }));
-        
-        startScreenShare.classList.add('d-none');
-        stopScreenShare.classList.remove('d-none');
-        screenShareContainer.classList.remove('d-none');
-        
-        screenShareContainer.innerHTML = '<p class="text-white">Screen sharing active</p>';
-        showNotification('Screen sharing started', 'success');
-    } else {
-        showNotification('Not connected to room', 'warning');
+    try {
+        if (typeof webRTCManager !== 'undefined' && webRTCManager) {
+            const success = await webRTCManager.startScreenShare();
+            
+            if (success && roomSocket && roomSocket.readyState === WebSocket.OPEN) {
+                roomSocket.send(JSON.stringify({
+                    'type': 'screen_share',
+                    'action': 'start'
+                }));
+                
+                if (startScreenShare) startScreenShare.classList.add('d-none');
+                if (stopScreenShare) stopScreenShare.classList.remove('d-none');
+                showNotification('Screen sharing started', 'success');
+            }
+        } else {
+            showNotification('Screen sharing not available', 'error');
+        }
+    } catch (error) {
+        console.error('Screen sharing error:', error);
+        showNotification('Failed to start screen sharing: ' + error.message, 'error');
     }
 }
 
 function stopScreenSharing() {
+    if (typeof webRTCManager !== 'undefined' && webRTCManager) {
+        webRTCManager.stopScreenShare();
+    }
+    
     if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
         roomSocket.send(JSON.stringify({
             'type': 'screen_share',
             'action': 'stop'
         }));
-        
-        stopScreenShare.classList.add('d-none');
-        startScreenShare.classList.remove('d-none');
-        screenShareContainer.classList.add('d-none');
-        showNotification('Screen sharing stopped', 'info');
     }
+    
+    if (stopScreenShare) stopScreenShare.classList.add('d-none');
+    if (startScreenShare) startScreenShare.classList.remove('d-none');
+    showNotification('Screen sharing stopped', 'info');
 }
 
 function handleScreenShareStarted(data) {
     if (data.user_id != userId) {
-        screenShareContainer.classList.remove('d-none');
-        screenShareContainer.innerHTML = `
-            <div class="d-flex justify-content-center align-items-center text-white h-100">
-                <div class="text-center">
-                    <i class="fas fa-desktop fa-3x mb-2"></i>
-                    <p>${data.username} is sharing their screen</p>
-                </div>
-            </div>
-        `;
         showNotification(`${data.username} started screen sharing`, 'info');
     }
 }
 
 function handleScreenShareEnded(data) {
     if (data.user_id != userId) {
-        screenShareContainer.classList.add('d-none');
         showNotification(`${data.username} stopped screen sharing`, 'info');
     }
 }
@@ -534,24 +636,43 @@ function userLeft(username) {
 }
 
 function showNotification(message, type = 'info') {
+    document.querySelectorAll('.notification-container').forEach(alert => alert.remove());
+    
     const notification = document.createElement('div');
-    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-    notification.style.cssText = 'top: 80px; right: 20px; z-index: 1050; min-width: 300px;';
+    notification.className = `alert alert-${type} alert-dismissible fade show notification-container`;  
+    
+    const icons = {
+        'success': 'check-circle',
+        'danger': 'exclamation-circle',
+        'warning': 'exclamation-triangle',
+        'info': 'info-circle'
+    };
+    
     notification.innerHTML = `
         <div class="d-flex align-items-center">
-            <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : type === 'warning' ? 'exclamation-triangle' : 'info-circle'} me-2"></i>
+            <i class="fas fa-${icons[type] || 'info-circle'} me-2"></i>
             <div>${message}</div>
         </div>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
     
     document.body.appendChild(notification);
+
+    const closeButton = notification.querySelector('.btn-close');
+    if (closeButton) {
+        closeButton.addEventListener('click', function() {
+            notification.remove();
+        });
+    }
     
     setTimeout(() => {
         if (notification.parentNode) {
             notification.remove();
         }
     }, 5000);
+
+    return notification;
+
 }
 
 function extractVideoId(url) {
@@ -646,6 +767,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (chatMessages) {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+
+    setInterval(calculateLatency, 30000);
+    calculateLatency();
 
     console.log('SyncStream room initialized');
 });
