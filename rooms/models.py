@@ -178,6 +178,9 @@ class Participant(models.Model):
     joined_at = models.DateTimeField(auto_now_add=True)
     is_online = models.BooleanField(default=True)
     is_moderator = models.BooleanField(default=False)
+    is_muted = models.BooleanField(default=False)
+    muted_until = models.DateTimeField(null=True, blank=True)
+    muted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='muted_users')
     
     class Meta:
         unique_together = ('room', 'user')
@@ -192,6 +195,27 @@ class Participant(models.Model):
     def set_offline(self):
         self.is_online = False
         self.save()
+
+    def mute(self, duration_minutes, muted_by):
+        self.is_muted = True
+        self.muted_until = timezone.now() + timezone.timedelta(minutes=duration_minutes)
+        self.muted_by = muted_by
+        self.save()
+    
+    def unmute(self):
+        self.is_muted = False
+        self.muted_until = None
+        self.muted_by = None
+        self.save()
+    
+    def is_currently_muted(self):
+        from django.utils import timezone
+        if not self.is_muted:
+            return False
+        if self.muted_until and timezone.now() > self.muted_until:
+            self.unmute()
+            return False
+        return True
 
 class Message(models.Model):
     MESSAGE_TYPES = (

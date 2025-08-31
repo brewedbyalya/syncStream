@@ -714,6 +714,7 @@ body.dark-theme {
     grid-template-columns: 1fr;
     gap: 1.5rem;
     margin-bottom: 2rem;
+    min-height: 0;
 }
 
 @media (min-width: 992px) {
@@ -724,6 +725,7 @@ body.dark-theme {
 
 .video-section {
     grid-column: 1;
+    min-height: 0;
 }
 
 .sidebar-section {
@@ -731,6 +733,7 @@ body.dark-theme {
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    min-height: 0;
 }
 
 .video-container-wrapper {
@@ -755,6 +758,7 @@ body.dark-theme {
     background: linear-gradient(135deg, rgba(44, 62, 80, 0.8) 0%, rgba(52, 73, 94, 0.8) 100%);
     color: var(--muted-text);
     text-align: center;
+    padding: 2rem;
 }
 
 #player-placeholder i {
@@ -770,6 +774,9 @@ body.dark-theme {
     border-radius: 50px;
     padding: 12px 24px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    margin: 15px;
+    position: relative;
+    z-index: 10;
 }
 
 .video-controls-glass button {
@@ -784,6 +791,7 @@ body.dark-theme {
     color: var(--golden-sand);
     font-size: 1.2rem;
     transition: all 0.3s ease;
+    margin: 0 5px;
 }
 
 .video-controls-glass button:hover {
@@ -798,10 +806,12 @@ body.dark-theme {
     padding: 8px 15px;
     border-radius: 25px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-left: 15px;
 }
 
 #start-screen-share, #stop-screen-share {
     transition: all 0.3s ease;
+    margin: 5px;
 }
 
 #start-screen-share:hover {
@@ -824,6 +834,7 @@ body.dark-theme {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
+    padding: 1rem;
 }
 
 .room-info-item {
@@ -833,6 +844,10 @@ body.dark-theme {
     text-align: center;
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .room-info-item strong {
@@ -853,6 +868,7 @@ body.dark-theme {
     background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     padding: 1.2rem;
+    min-height: 200px;
 }
 
 .chat-messages-glass {
@@ -868,6 +884,8 @@ body.dark-theme {
     margin-bottom: 0.8rem;
     border-left: 4px solid;
     animation: messageSlideIn 0.3s ease-out;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 @keyframes messageSlideIn {
@@ -902,11 +920,13 @@ body.dark-theme {
     display: grid;
     grid-template-columns: 1fr;
     gap: 0.8rem;
+    padding: 1rem;
 }
 
 .btn-outline-primary, .btn-outline-info, .btn-outline-secondary, .btn-outline-warning {
     border-width: 2px;
     transition: all 0.3s ease;
+    margin: 2px 0;
 }
 
 .btn-outline-primary:hover {
@@ -938,6 +958,7 @@ body.dark-theme {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 1rem;
+    padding: 1rem;
 }
 
 .participant-card {
@@ -948,6 +969,12 @@ body.dark-theme {
     text-align: center;
     transition: all 0.3s ease;
     backdrop-filter: blur(10px);
+     min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    overflow: visible;
 }
 
 .participant-card:hover {
@@ -984,6 +1011,7 @@ body.dark-theme {
     margin: 0 auto 0.8rem auto;
     font-size: 1.2rem;
     border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
 }
 
 .participant-name {
@@ -991,6 +1019,7 @@ body.dark-theme {
     font-weight: 600;
     margin-bottom: 0.3rem;
     color: var(--light-text);
+    word-break: break-word;
 }
 
 .status-online {
@@ -1007,6 +1036,7 @@ body.dark-theme {
     backdrop-filter: blur(20px);
     border: 1px solid rgba(79, 28, 81, 0.3);
     border-radius: 20px;
+    overflow: visible;
 }
 
 .shortcut-item {
@@ -1015,6 +1045,7 @@ body.dark-theme {
     padding: 12px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     transition: background 0.3s ease;
+    margin: 0 -15px;
 }
 
 .shortcut-item:hover {
@@ -3056,4 +3087,56 @@ strong
 
 .max-users{
     color: var(--golden-sand);
+}
+
+.message-container {
+    position: relative;
+}
+
+.delete-message-btn {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    padding: 0.1rem 0.3rem;
+    font-size: 0.75rem;
+}
+
+.message:hover .delete-message-btn {
+    opacity: 1;
+}
+
+.message-content {
+    word-wrap: break-word;
+}
+
+.participant-muted {
+    opacity: 0.7;
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.muted-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.participant-avatar {
+    position: relative;
+}
+
+.participant-actions {
+    margin-top: 8px;
+}
+
+.participant-actions .btn {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
 }

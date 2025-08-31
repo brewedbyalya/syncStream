@@ -14,4 +14,7 @@ urlpatterns = [
     path('join-by-password/', views.join_by_password, name='join_by_password'),
     path('api/<uuid:room_id>/state/', views.room_state_api, name='room_state_api'),
     path('api/<uuid:room_id>/video-state/', views.update_video_state_api, name='update_video_state_api'),
+    path('<uuid:room_id>/messages/<uuid:message_id>/delete/', views.delete_message, name='delete_message'),
+    path('<uuid:room_id>/users/<uuid:user_id>/mute/', views.mute_user, name='mute_user'),
+    path('<uuid:room_id>/users/<uuid:user_id>/unmute/', views.unmute_user, name='unmute_user'),
 ]

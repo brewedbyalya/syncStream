@@ -354,6 +354,68 @@ class RoomConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error sending WebRTC signal: {str(e)}")
 
+    async def message_deleted(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'message_deleted',
+            'message_id': event['message_id'],
+            'deleted_by': event['deleted_by'],
+            'message_content': event['message_content'],
+            'message_author': event['message_author']
+            }))
+
+    async def user_muted(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_muted',
+            'user_id': event['user_id'],
+            'username': event['username'],
+            'muted_by': event['muted_by'],
+            'duration': event['duration'],
+            'muted_until': event['muted_until']
+            }))
+
+    async def user_unmuted(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_unmuted',
+            'user_id': event['user_id'],
+            'username': event['username'],
+            'unmuted_by': event['unmuted_by']
+        }))
+
+    async def handle_chat_message(self, data):
+        try:
+            message = data.get('message', '').strip()
+            
+            if not message:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Message cannot be empty'
+                }))
+                return
+            
+            is_muted = await self.check_if_muted()
+            if is_muted:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'You are currently muted and cannot send messages'
+                }))
+                return
+            
+            
+        except Exception as e:
+            logger.error(f"Error handling chat message: {str(e)}")
+            await self.send(text_data=json.dumps({
+                'type': 'error',
+                'message': 'Error sending message'
+            }))
+
+    @database_sync_to_async
+    def check_if_muted(self):
+        try:
+            participant = Participant.objects.get(room_id=self.room_id, user=self.user)
+            return participant.is_currently_muted()
+        except Participant.DoesNotExist:
+            return False
+
     @database_sync_to_async
     def get_room(self):
         try:

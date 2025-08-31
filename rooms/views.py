@@ -1,12 +1,15 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseForbidden
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 from django.contrib import messages
 from .models import Room, Participant, Message
 from .forms import RoomForm
 import json
 from django.views.decorators.csrf import csrf_exempt
+from django.utils import timezone
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 def home(request):
     rooms = Room.objects.filter(is_active=True, is_private=False)
@@ -289,5 +292,109 @@ def update_video_state_api(request, room_id):
         
     except Room.DoesNotExist:
         return JsonResponse({'error': 'Room not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_POST
+@login_required
+def delete_message(request, room_id, message_id):
+    try:
+        room = get_object_or_404(Room, id=room_id)
+        message = get_object_or_404(Message, id=message_id, room=room)
+        
+        if request.user != room.creator:
+            return JsonResponse({'error': 'Only room creators can delete messages'}, status=403)
+        
+        message_info = {
+            'id': str(message.id),
+            'content': message.message[:50] + '...' if len(message.message) > 50 else message.message,
+            'username': message.user.username
+        }
+        
+        message.delete()
+        
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'room_{room_id}',
+            {
+                'type': 'message_deleted',
+                'message_id': str(message.id),
+                'deleted_by': request.user.username,
+                'message_content': message_info['content'],
+                'message_author': message_info['username']
+            }
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_POST
+@login_required
+def mute_user(request, room_id, user_id):
+    try:
+        room = get_object_or_404(Room, id=room_id)
+        target_user = get_object_or_404(User, id=user_id)
+        participant = get_object_or_404(Participant, room=room, user=target_user)
+        
+        if request.user != room.creator:
+            return JsonResponse({'error': 'Only room creators can mute users'}, status=403)
+        
+        duration = int(request.POST.get('duration', 5))
+        
+        participant.mute(duration, request.user)
+    
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'room_{room_id}',
+            {
+                'type': 'user_muted',
+                'user_id': str(target_user.id),
+                'username': target_user.username,
+                'muted_by': request.user.username,
+                'duration': duration,
+                'muted_until': participant.muted_until.isoformat() if participant.muted_until else None
+            }
+        )
+        
+        return JsonResponse({'success': True, 'duration': duration})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_POST
+@login_required
+def unmute_user(request, room_id, user_id):
+    try:
+        room = get_object_or_404(Room, id=room_id)
+        target_user = get_object_or_404(User, id=user_id)
+        participant = get_object_or_404(Participant, room=room, user=target_user)
+        
+        if request.user != room.creator:
+            return JsonResponse({'error': 'Only room creators can unmute users'}, status=403)
+        
+        participant.unmute()
+        
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'room_{room_id}',
+            {
+                'type': 'user_unmuted',
+                'user_id': str(target_user.id),
+                'username': target_user.username,
+                'unmuted_by': request.user.username
+            }
+        )
+        
+        return JsonResponse({'success': True})
+        
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
