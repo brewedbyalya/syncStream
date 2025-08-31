@@ -1,6 +1,6 @@
 :root {
     --deep-purple: #210F37;
-    --royal-purple: #4F1C51;
+    --royal-purple: hwb(298 11% 68%);
     --terracotta: #A55B4B;
     --golden-sand: #DCA06D;
     --dark-bg: #0f0820;
@@ -1029,7 +1029,7 @@ body.dark-theme {
     min-width: 70px;
     text-align: center;
     margin-right: 15px;
-    font-family: 'Fira Code', monospace;
+    font-family: 'Poppins', sans-serif;
     font-weight: 600;
     color: var(--golden-sand);
     border: 1px solid rgba(79, 28, 81, 0.3);
@@ -1243,13 +1243,6 @@ body.dark-theme {
     color: #DCA06D;
 }
 
-.btn {
-    border-radius: 12px;
-    padding: 0.8rem 1.8rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    border: none;
-}
 
 .btn-primary {
     background: linear-gradient(135deg, #4F1C51 0%, #A55B4B 100%);
@@ -1532,13 +1525,13 @@ body.dark-theme {
 }
 
 .btn-outline-primary {
-    background: transparent;
+    background: var(--golden-sand);
     border: 1px solid #4F1C51;
     color: #4F1C51;
 }
 
 .btn-outline-primary:hover {
-    background: #4F1C51;
+    background: #d87016;
     border-color: #4F1C51;
     color: #fff;
     transform: translateY(-2px);
@@ -3055,4 +3048,13 @@ form.d-inline {
     .signup-title {
         font-size: 1.5rem;
     }
+}
+
+strong 
+{
+    color: white;
+}
+
+.max-users{
+    color: var(--golden-sand);
 }
