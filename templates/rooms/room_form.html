@@ -1,42 +1,61 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card card-gradient">
-            <div class="card-header">
-                <h3>{% if editing %}Edit Room: {{ form.instance.name }}{% else %}Create New Room{% endif %}</h3>
-            </div>
-            <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
-                    {% for field in form %}
-                    <div class="mb-3">
-                        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                        {{ field }}
-                        {% if field.help_text %}
-                        <div class="form-text">{{ field.help_text }}</div>
-                        {% endif %}
-                        {% for error in field.errors %}
-                        <div class="text-danger">{{ error }}</div>
+<div class="room-form-container">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card card-gradient">
+                <div class="card-header">
+                    <h3>{% if editing %}Edit Room: {{ form.instance.name }}{% else %}Create New Room{% endif %}</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" class="room-form">
+                        {% csrf_token %}
+                        
+                        {% for field in form %}
+                        <div class="form-group mb-4">
+                            <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                            
+                            {% if field.field.widget.input_type == 'checkbox' %}
+                                <div class="form-check">
+                                    {{ field }}
+                                    <label class="form-check-label" for="{{ field.id_for_label }}">
+                                        {{ field.help_text }}
+                                    </label>
+                                </div>
+                            {% else %}
+                                {{ field }}
+                                {% if field.help_text %}
+                                <div class="form-text">{{ field.help_text }}</div>
+                                {% endif %}
+                            {% endif %}
+                            
+                            {% for error in field.errors %}
+                            <div class="text-danger">{{ error }}</div>
+                            {% endfor %}
+                        </div>
                         {% endfor %}
-                    </div>
-                    {% endfor %}
-                    
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle me-2"></i>
-                        {% if editing %}
-                            Changing room privacy will generate a new random password.
-                        {% else %}
-                            Private rooms will automatically generate a secure random password.
-                        {% endif %}
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">
-                        {% if editing %}Update Room{% else %}Create Room{% endif %}
-                    </button>
-                    <a href="{% if editing %}{% url 'rooms:room_detail' form.instance.id %}{% else %}{% url 'home' %}{% endif %}" class="btn btn-secondary">Cancel</a>
-                </form>
+                        
+                        <div class="alert alert-info mb-4">
+                            <i class="fas fa-info-circle me-2"></i>
+                            {% if editing %}
+                                Changing room privacy will generate a new random password.
+                            {% else %}
+                                Private rooms will automatically generate a secure random password.
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-actions d-flex gap-2 flex-wrap">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-{% if editing %}save{% else %}plus-circle{% endif %} me-2"></i>
+                                {% if editing %}Update Room{% else %}Create Room{% endif %}
+                            </button>
+                            <a href="{% if editing %}{% url 'rooms:room_detail' form.instance.id %}{% else %}{% url 'home' %}{% endif %}" class="btn btn-secondary">
+                                <i class="fas fa-times me-2"></i>Cancel
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
