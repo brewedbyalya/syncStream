@@ -5,6 +5,9 @@ name = "pypi"
 
 [packages]
 pillow = "*"
+django-cloudinary-storage = "*"
+cloudinary = "*"
+python-dotenv = "*"
 
 [dev-packages]
 

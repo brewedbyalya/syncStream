@@ -6,6 +6,9 @@ from channels.db import database_sync_to_async
 from django.contrib.auth import get_user_model
 from .models import Room, Participant, Message, ScreenSession
 from django.utils import timezone
+from asgiref.sync import sync_to_async
+from django.core.cache import cache
+import asyncio
 
 logger = logging.getLogger(__name__)
 User = get_user_model()
@@ -119,6 +122,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 await self.handle_ping(data)
             elif message_type == 'webrtc_signal':
                 await self.handle_webrtc_signal(data)
+            elif message_type == 'typing_start':
+                await self.handle_typing_start()
+            elif message_type == 'typing_stop':
+                await self.handle_typing_stop()
             else:
                 logger.warning(f"Unknown message type: {message_type}")
                 await self.send(text_data=json.dumps({
@@ -138,6 +145,53 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 'type': 'error',
                 'message': 'Internal server error'
             }))
+
+    async def handle_typing_start(self):
+        try:
+            is_muted = await self.check_if_muted()
+            if is_muted:
+                return
+            
+            await self.add_user_to_typing_cache()
+                
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'typing_indicator',
+                    'user_id': self.user.id,
+                    'username': self.user.username,
+                    'is_typing': True
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error handling typing start: {str(e)}")
+
+    async def handle_typing_stop(self):
+        try:
+            await self.remove_user_from_typing_cache()
+                
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'typing_indicator',
+                    'user_id': self.user.id,
+                    'username': self.user.username,
+                    'is_typing': False
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error handling typing stop: {str(e)}")
+
+    async def typing_indicator(self, event):
+        try:
+            await self.send(text_data=json.dumps({
+                'type': 'typing_indicator',
+                'user_id': event['user_id'],
+                'username': event['username'],
+                'is_typing': event['is_typing']
+            }))
+        except Exception as e:
+            logger.error(f"Error sending typing indicator: {str(e)}")
 
     async def handle_video_control(self, data):
         try:
@@ -560,3 +614,40 @@ class RoomConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error(f"Error ending screen session: {str(e)}")
             return False
+
+    @database_sync_to_async
+    def add_user_to_typing_cache(self):
+        cache_key = f'room_{self.room_id}_typing_users'
+        typing_users = cache.get(cache_key, {})
+        typing_users[self.user.id] = {
+            'username': self.user.username,
+            'timestamp': time.time()
+        }
+        cache.set(cache_key, typing_users, timeout=10)
+
+    @database_sync_to_async
+    def remove_user_from_typing_cache(self):
+        cache_key = f'room_{self.room_id}_typing_users'
+        typing_users = cache.get(cache_key, {})
+        if self.user.id in typing_users:
+            del typing_users[self.user.id]
+            cache.set(cache_key, typing_users, timeout=10)
+
+    @database_sync_to_async
+    def get_typing_users(self):
+        cache_key = f'room_{self.room_id}_typing_users'
+        typing_users = cache.get(cache_key, {})
+        
+        current_time = time.time()
+        expired_users = [
+            user_id for user_id, data in typing_users.items() 
+            if current_time - data['timestamp'] > 5
+        ]
+        
+        for user_id in expired_users:
+            del typing_users[user_id]
+        
+        if expired_users:
+            cache.set(cache_key, typing_users, timeout=10)
+        
+        return list(typing_users.values())
