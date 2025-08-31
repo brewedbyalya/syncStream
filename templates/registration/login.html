@@ -1,30 +1,49 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="text-center">Log In</h3>
+<div class="row justify-content-center login-container">
+    <div class="col-md-6 col-lg-5">
+        <div class="card login-card">
+            <div class="card-header login-header">
+                <h3 class="text-center login-title">
+                    <i class="fas fa-user-circle login-title-icon"></i>Welcome Back
+                </h3>
+                <p class="text-center login-subtitle">Sign in to your account</p>
             </div>
-            <div class="card-body">
-                <form method="post">
+            <div class="card-body login-body">
+                <form method="post" class="login-form">
                     {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
+                    <div class="mb-4">
+                        <label for="username" class="form-label login-label">
+                            <i class="fas fa-user login-input-icon"></i>Username
+                        </label>
+                        <div class="login-input-container">
+                            <input type="text" class="form-control login-input" id="username" name="username" required placeholder="Enter your username">
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                    <div class="mb-4">
+                        <label for="password" class="form-label login-label">
+                            <i class="fas fa-lock login-input-icon"></i>Password
+                        </label>
+                        <div class="login-input-container">
+                            <input type="password" class="form-control login-input" id="password" name="password" required placeholder="Enter your password">
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Log In</button>
+                    <button type="submit" class="btn login-btn login-btn-primary">
+                        <i class="fas fa-sign-in-alt me-2"></i>Log In
+                    </button>
                 </form>
-                <div class="text-center mt-3">
-                    <p>Don't have an account? <a href="{% url 'signup' %}">Sign Up</a></p>
+                
+                <div class="login-divider">
+                    <span>New here?</span>
+                </div>
+                
+                <div class="text-center login-signup">
+                    <p>Don't have an account? <a href="{% url 'signup' %}" class="login-signup-link">Create Account</a></p>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
 {% endblock %}

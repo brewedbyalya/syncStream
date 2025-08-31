@@ -1,25 +1,38 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h3 class="text-center">Logged Out</h3>
+<div class="row justify-content-center logout-container">
+    <div class="col-md-6 col-lg-5">
+        <div class="card logout-card">
+            <div class="card-header logout-header">
+                <h3 class="text-center logout-title">
+                    <i class="fas fa-door-open logout-title-icon"></i>Logged Out
+                </h3>
             </div>
-            <div class="card-body text-center">
-                <div class="mb-4">
-                    <i class="fas fa-sign-out-alt fa-4x text-primary"></i>
+            <div class="card-body text-center logout-body">
+                <div class="logout-icon-container">
+                    <div class="logout-icon-wrapper">
+                        <i class="fas fa-sign-out-alt logout-icon"></i>
+                    </div>
                 </div>
-                <p class="mb-4">You have been successfully logged out.</p>
-                <a href="{% url 'login' %}" class="btn btn-primary">
-                    <i class="fas fa-sign-in-alt me-2"></i>Log In Again
-                </a>
-                <a href="{% url 'home' %}" class="btn btn-outline-secondary ms-2">
-                    <i class="fas fa-home me-2"></i>Go Home
-                </a>
+                <p class="logout-message">You have been successfully logged out.</p>
+                <p class="logout-submessage">Thank you for visiting. We hope to see you again soon!</p>
+                
+                <div class="logout-actions">
+                    <a href="{% url 'login' %}" class="btn logout-btn logout-btn-primary">
+                        <i class="fas fa-sign-in-alt me-2"></i>Log In Again
+                    </a>
+                    <a href="{% url 'home' %}" class="btn logout-btn logout-btn-secondary">
+                        <i class="fas fa-home me-2"></i>Go Home
+                    </a>
+                </div>
+                
+                <div class="logout-footer">
+                    <p class="logout-footer-text">Return to <a href="{% url 'home' %}" class="logout-footer-link">Homepage</a> or <a href="{% url 'login' %}" class="logout-footer-link">Sign In</a></p>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
 {% endblock %}
