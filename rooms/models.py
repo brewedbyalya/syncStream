@@ -24,6 +24,7 @@ class Room(models.Model):
     video_timestamp = models.FloatField(default=0)
     last_video_update = models.DateTimeField(blank=True, null=True)
     deleted_at = models.DateTimeField(blank=True, null=True)
+    banned_words = models.JSONField(default=list, blank=True)
     
     def __str__(self):
         return self.name
@@ -171,6 +172,26 @@ class Room(models.Model):
             }
             for participant in self.participants.select_related('user').all()
         ]
+
+    def add_banned_word(self, word):
+        if word.lower() not in self.banned_words:
+            self.banned_words.append(word.lower())
+            self.save()
+    
+    def remove_banned_word(self, word):
+        if word.lower() in self.banned_words:
+            self.banned_words.remove(word.lower())
+            self.save()
+    
+    def contains_banned_words(self, message):
+        if not self.banned_words:
+            return False
+        
+        message_lower = message.lower()
+        return any(banned_word in message_lower for banned_word in self.banned_words)
+    
+    def get_banned_words(self):
+        return sorted(self.banned_words)
 
 class Participant(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='participants')

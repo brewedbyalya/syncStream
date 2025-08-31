@@ -17,4 +17,7 @@ urlpatterns = [
     path('<uuid:room_id>/messages/<uuid:message_id>/delete/', views.delete_message, name='delete_message'),
     path('<uuid:room_id>/users/<uuid:user_id>/mute/', views.mute_user, name='mute_user'),
     path('<uuid:room_id>/users/<uuid:user_id>/unmute/', views.unmute_user, name='unmute_user'),
+    path('<uuid:room_id>/banned-words/add/', views.add_banned_word, name='add_banned_word'),
+    path('<uuid:room_id>/banned-words/remove/', views.remove_banned_word, name='remove_banned_word'),
+    path('<uuid:room_id>/banned-words/', views.get_banned_words, name='get_banned_words'),
 ]

@@ -127,6 +127,37 @@
         </div>
         {% endif %}
 
+        {% if room.creator == user %}
+        <div class="card card-gradient mt-3">
+            <div class="card-header">
+                <h5><i class="fas fa-ban me-2"></i>Banned Words</h5>
+            </div>
+            <div class="card-body">
+                <div class="banned-words-container">
+                    <div class="d-flex mb-3">
+                        <input type="text" id="banned-word-input" class="form-control me-2" 
+                               placeholder="Enter word to ban..." maxlength="50">
+                        <button class="btn btn-danger" onclick="addBannedWord()">
+                            <i class="fas fa-plus me-1"></i>Add
+                        </button>
+                    </div>
+                    
+                    <div id="banned-words-list" class="banned-words-list">
+                        <div class="text-center text-muted" id="no-banned-words">
+                            <i class="fas fa-ban fa-2x mb-2"></i>
+                            <p>No banned words yet</p>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Messages containing banned words will be automatically blocked.
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card card-gradient mt-3">
             <div class="card-header">
                 <i class="fas fa-info-circle me-2"></i>Room Information
@@ -362,7 +393,6 @@
     const isRoomCreator = "{{ room.creator.id }}" === "{{ user.id }}";
     const roomUrl = window.location.href;
     
-    // Initialize WebRTC manager immediately
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof roomId !== 'undefined' && typeof userId !== 'undefined') {
             webRTCManager = new WebRTCManager(roomId, userId, username || 'User');
@@ -374,7 +404,6 @@
 <script src="{% static 'js/room.js' %}"></script>
 <script src="{% static 'js/webrtc.js' %}"></script>
 <script>
-// Message deletion functions
 function confirmDeleteMessage(messageId, messageContent, username) {
     const truncatedMessage = messageContent.length > 100 ? messageContent.substring(0, 100) + '...' : messageContent;
     
@@ -759,5 +788,128 @@ document.addEventListener('DOMContentLoaded', function() {
         fullscreenBtn.addEventListener('click', toggleFullscreen);
     }
 });
+
+function addBannedWord() {
+    const wordInput = document.getElementById('banned-word-input');
+    const word = wordInput.value.trim();
+    
+    if (!word) {
+        showNotification('Please enter a word to ban', 'warning');
+        return;
+    }
+    
+    if (word.length < 2) {
+        showNotification('Word must be at least 2 characters', 'warning');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('word', word);
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch(`/rooms/${roomId}/banned-words/add/`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            wordInput.value = '';
+            showNotification(data.message, 'success');
+            loadBannedWords();
+        } else {
+            showNotification('Failed to add banned word: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error adding banned word:', error);
+        showNotification('Error adding banned word', 'error');
+    });
+}
+
+function removeBannedWord(word) {
+    if (!confirm(`Remove "${word}" from banned words?`)) return;
+    
+    const formData = new FormData();
+    formData.append('word', word);
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch(`/rooms/${roomId}/banned-words/remove/`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            loadBannedWords();
+        } else {
+            showNotification('Failed to remove banned word: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error removing banned word:', error);
+        showNotification('Error removing banned word', 'error');
+    });
+}
+
+function loadBannedWords() {
+    fetch(`/rooms/${roomId}/banned-words/`, {
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            displayBannedWords(data.banned_words);
+        }
+    })
+    .catch(error => {
+        console.error('Error loading banned words:', error);
+    });
+}
+
+function displayBannedWords(words) {
+    const container = document.getElementById('banned-words-list');
+    const emptyState = document.getElementById('no-banned-words');
+    
+    if (words.length === 0) {
+        emptyState.style.display = 'block';
+        container.innerHTML = '';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    
+    const wordsHtml = words.map(word => `
+        <div class="banned-word-item">
+            <span class="banned-word-text">${word}</span>
+            <button class="btn btn-sm btn-outline-danger" 
+                    onclick="removeBannedWord('${word.replace(/'/g, "\\'")}')"
+                    title="Remove banned word">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `).join('');
+    
+    container.innerHTML = wordsHtml;
+}
+
+if (isRoomCreator) {
+    document.addEventListener('DOMContentLoaded', loadBannedWords);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const bannedWordInput = document.getElementById('banned-word-input');
+    if (bannedWordInput) {
+        bannedWordInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                addBannedWord();
+            }
+        });
+    }
+});
+
 </script>
 {% endblock %}

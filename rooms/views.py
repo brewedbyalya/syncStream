@@ -106,6 +106,7 @@ def room_detail(request, room_id):
         'user': request.user,
         'invite_info': invite_info,
         'isRoomCreator': room.creator == request.user,
+        'banned_words': room.get_banned_words() if room.creator == request.user else [],
     })
 
 @login_required
@@ -395,6 +396,64 @@ def unmute_user(request, room_id, user_id):
         )
         
         return JsonResponse({'success': True})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_POST
+@login_required
+def add_banned_word(request, room_id):
+    try:
+        room = get_object_or_404(Room, id=room_id, creator=request.user)
+        word = request.POST.get('word', '').strip()
+        
+        if not word:
+            return JsonResponse({'error': 'Word cannot be empty'}, status=400)
+        
+        if len(word) < 2:
+            return JsonResponse({'error': 'Word must be at least 2 characters'}, status=400)
+        
+        room.add_banned_word(word)
+        
+        return JsonResponse({
+            'success': True, 
+            'banned_words': room.get_banned_words(),
+            'message': f'Added "{word}" to banned words'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_POST
+@login_required
+def remove_banned_word(request, room_id):
+    try:
+        room = get_object_or_404(Room, id=room_id, creator=request.user)
+        word = request.POST.get('word', '').strip()
+        
+        if not word:
+            return JsonResponse({'error': 'Word cannot be empty'}, status=400)
+        
+        room.remove_banned_word(word)
+        
+        return JsonResponse({
+            'success': True, 
+            'banned_words': room.get_banned_words(),
+            'message': f'Removed "{word}" from banned words'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def get_banned_words(request, room_id):
+    try:
+        room = get_object_or_404(Room, id=room_id, creator=request.user)
+        
+        return JsonResponse({
+            'success': True, 
+            'banned_words': room.get_banned_words()
+        })
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

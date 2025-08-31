@@ -139,54 +139,6 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 'message': 'Internal server error'
             }))
 
-    async def handle_chat_message(self, data):
-        try:
-            message = data.get('message', '').strip()
-            
-            if not message:
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': 'Message cannot be empty'
-                }))
-                return
-                
-            # Check message length
-            if len(message) > 1000:
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': 'Message too long (max 1000 characters)'
-                }))
-                return
-                
-            room = await self.get_room()
-            if not room:
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': 'Room not found'
-                }))
-                return
-                
-            if room and room.allow_chat:
-                saved_message = await self.save_message(room, message)
-                if saved_message:
-                    await self.channel_layer.group_send(
-                        self.room_group_name,
-                        {
-                            'type': 'chat_message',
-                            'message': message,
-                            'user_id': self.user.id,
-                            'username': self.user.username,
-                            'timestamp': timezone.now().isoformat(),
-                            'message_id': str(saved_message.id),
-                        }
-                    )
-        except Exception as e:
-            logger.error(f"Error handling chat message: {str(e)}")
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': 'Error sending message'
-            }))
-
     async def handle_video_control(self, data):
         try:
             action = data.get('action')
@@ -391,7 +343,45 @@ class RoomConsumer(AsyncWebsocketConsumer):
                     'message': 'Message cannot be empty'
                 }))
                 return
+
+            if len(message) > 1000:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Message too long (max 1000 characters)'
+                }))
+                return
+
+            room = await self.get_room()
+            if room and room.contains_banned_words(message):
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Message contains banned words'
+                }))
+                return
+
+            room = await self.get_room()
+            if not room:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Room not found'
+                }))
+                return
             
+            if room and room.allow_chat:
+                saved_message = await self.save_message(room, message)
+                if saved_message:
+                    await self.channel_layer.group_send(
+                        self.room_group_name,
+                        {
+                            'type': 'chat_message',
+                            'message': message,
+                            'user_id': self.user.id,
+                            'username': self.user.username,
+                            'timestamp': timezone.now().isoformat(),
+                            'message_id': str(saved_message.id),
+                        }
+                    )
+
             is_muted = await self.check_if_muted()
             if is_muted:
                 await self.send(text_data=json.dumps({
