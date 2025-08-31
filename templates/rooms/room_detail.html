@@ -77,7 +77,7 @@
                     <input type="text" id="video-url-input" class="form-control" 
                            placeholder="Enter YouTube URL, Vimeo URL, or direct video link..." 
                            aria-label="Video URL">
-                    <button id="load-video" class="btn btn-primary">
+                    <button id="load-video" class="btn btn-primary" onclick="loadVideo()">
                         <i class="fas fa-play me-1"></i>Load
                     </button>
                 </div>
@@ -296,6 +296,14 @@
     const username = "{{ user.username }}";
     const isRoomCreator = "{{ room.creator.id }}" === "{{ user.id }}";
     const roomUrl = window.location.href;
+    
+    // Initialize WebRTC manager immediately
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof roomId !== 'undefined' && typeof userId !== 'undefined') {
+            webRTCManager = new WebRTCManager(roomId, userId, username || 'User');
+            console.log('WebRTC manager initialized');
+        }
+    });
 </script>
 <script src="https://www.youtube.com/iframe_api"></script>
 <script src="{% static 'js/room.js' %}"></script>

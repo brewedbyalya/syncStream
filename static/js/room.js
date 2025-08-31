@@ -31,43 +31,47 @@ function onYouTubeIframeAPIReady() {
 }
 
 function initializeYouTubePlayer() {
-    if (youTubeAPILoaded && typeof YT !== 'undefined' && YT.Player) {
+    if (typeof YT !== 'undefined' && YT.Player) {
         createYouTubePlayer();
     } else {
-        youTubeAPILoadCallbacks.push(createYouTubePlayer);
-        
-        setTimeout(() => {
-            if (!youTubeAPILoaded) {
-                showNotification('YouTube player failed to load. Please refresh the page.', 'error');
-            }
-        }, 5000);
+        if (!window.YTConfig) {
+            window.onYouTubeIframeAPIReady = function() {
+                youTubeAPILoaded = true;
+                createYouTubePlayer();
+            };
+            
+            const tag = document.createElement('script');
+            tag.src = "https://www.youtube.com/iframe_api";
+            const firstScriptTag = document.getElementsByTagName('script')[0];
+            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+        }
     }
 }
 
 function createYouTubePlayer() {
     const youtubePlayerElement = document.getElementById('youtube-player');
-    if (youtubePlayerElement) {
-        try {
-            player = new YT.Player('youtube-player', {
-                height: '100%',
-                width: '100%',
-                playerVars: {
-                    'playsinline': 1,
-                    'controls': 1,
-                    'modestbranding': 1,
-                    'rel': 0,
-                    'enablejsapi': 1
-                },
-                events: {
-                    'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange,
-                    'onError': onPlayerError
-                }
-            });
-        } catch (error) {
-            console.error('Error creating YouTube player:', error);
-            showNotification('Error creating YouTube player', 'error');
-        }
+    if (!youtubePlayerElement) return;
+    
+    try {
+        player = new YT.Player('youtube-player', {
+            height: '100%',
+            width: '100%',
+            playerVars: {
+                'playsinline': 1,
+                'controls': 1,
+                'modestbranding': 1,
+                'rel': 0,
+                'enablejsapi': 1,
+                'origin': window.location.origin
+            },
+            events: {
+                'onReady': onPlayerReady,
+                'onStateChange': onPlayerStateChange,
+                'onError': onPlayerError
+            }
+        });
+    } catch (error) {
+        console.error('Error creating YouTube player:', error);
     }
 }
 
@@ -108,6 +112,7 @@ function onPlayerError(event) {
 function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/room/${roomId}/`;
+    console.log('Connecting to WebSocket:', wsUrl);
     
     roomSocket = new WebSocket(wsUrl);
 
@@ -269,7 +274,7 @@ function sendChatMessage() {
 
 function loadVideo() {
     const url = videoUrlInput.value.trim();
-    if (url) {
+    if (url && isValidVideoUrl(url)) {
         const videoInfo = extractVideoId(url);
         if (videoInfo) {
             sendVideoControl('load', 0, url);
@@ -277,6 +282,8 @@ function loadVideo() {
         } else {
             showNotification('Unsupported video URL format', 'error');
         }
+    } else {
+        showNotification('Please enter a valid YouTube, Vimeo, or video file URL', 'error');
     }
 }
 
@@ -310,7 +317,7 @@ function loadVideoToPlayer(url) {
             showNotification('Unsupported video format', 'error');
             return;
     }
-    
+
     const videoControls = document.getElementById('video-controls');
     if (videoControls) {
         videoControls.classList.remove('d-none');
@@ -337,7 +344,15 @@ function loadYouTubeVideo(videoId) {
     youtubeDiv.id = 'youtube-player';
     videoContainer.appendChild(youtubeDiv);
     
-    initializeYouTubePlayer();
+    if (typeof YT !== 'undefined' && YT.Player) {
+        createYouTubePlayer();
+    } else {
+        if (window.onYouTubeIframeAPIReady) {
+            youTubeAPILoadCallbacks.push(createYouTubePlayer);
+        } else {
+            showNotification('YouTube player failed to load', 'error');
+        }
+    }
 }
 
 function loadVimeoVideo(videoId) {

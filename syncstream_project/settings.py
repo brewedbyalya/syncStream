@@ -60,6 +60,7 @@ TEMPLATES = [
 
 # Channels configuration
 ASGI_APPLICATION = 'syncstream_project.asgi.application'
+WSGI_APPLICATION = 'syncstream_project.wsgi.application'
 
 # Channel layer configuration (using Redis in production, InMemory for development)
 CHANNEL_LAYERS = {
@@ -117,3 +118,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
+
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
