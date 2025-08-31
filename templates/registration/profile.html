@@ -1,48 +1,94 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">
-                <h4>User Profile</h4>
-            </div>
-            <div class="card-body text-center">
-                <div class="mb-3">
-                    <i class="fas fa-user-circle fa-5x text-primary"></i>
+<div class="profile-container">
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card profile-card">
+                <div class="card-header profile-header">
+                    <h4><i class="fas fa-user profile-header-icon"></i>User Profile</h4>
                 </div>
-                <h5>{{ user.username }}</h5>
-                <p class="text-muted">{{ user.email }}</p>
-                <p>Member since: {{ user.date_joined|date:"M d, Y" }}</p>
-                <p>Last login: {{ user.last_login|date:"M d, Y" }}</p>
+                <div class="card-body text-center profile-body">
+                    <div class="profile-avatar">
+                        <div class="avatar-container">
+                            <i class="fas fa-user-circle"></i>
+                            <div class="avatar-status"></div>
+                        </div>
+                    </div>
+                    <h5 class="profile-username">{{ user.username }}</h5>
+                    <p class="profile-email">{{ user.email }}</p>
+                    
+                    <div class="profile-stats">
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-calendar-plus"></i>
+                            </div>
+                            <div class="stat-content">
+                                <span class="stat-label">Member since</span>
+                                <span class="stat-value">{{ user.date_joined|date:"M d, Y" }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-sign-in-alt"></i>
+                            </div>
+                            <div class="stat-content">
+                                <span class="stat-label">Last login</span>
+                                <span class="stat-value">{{ user.last_login|date:"M d, Y" }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h4>My Rooms</h4>
-            </div>
-            <div class="card-body">
-                <a href="{% url 'rooms:create_room' %}" class="btn btn-primary mb-3">Create New Room</a>
-                {% if user.created_rooms.all %}
-                <div class="list-group">
-                    {% for room in user.created_rooms.all %}
-                    <a href="{% url 'rooms:room_detail' room.id %}" class="list-group-item list-group-item-action">
-                        <div class="d-flex w-100 justify-content-between">
-                            <h5 class="mb-1">{{ room.name }}</h5>
-                            <small>{{ room.created_at|date:"M d, Y" }}</small>
-                        </div>
-                        <p class="mb-1">{{ room.description|truncatewords:10 }}</p>
-                        <small>{{ room.participants.count }} participants</small>
-                    </a>
-                    {% endfor %}
+        
+        <div class="col-md-8">
+            <div class="card rooms-card">
+                <div class="card-header rooms-header">
+                    <h4><i class="fas fa-door-open rooms-header-icon"></i>My Rooms</h4>
                 </div>
-                {% else %}
-                <p class="text-muted">You haven't created any rooms yet.</p>
-                {% endif %}
+                <div class="card-body rooms-body">
+                    <a href="{% url 'rooms:create_room' %}" class="btn create-room-btn">
+                        <i class="fas fa-plus-circle"></i> Create New Room
+                    </a>
+                    
+                    {% if user.created_rooms.all %}
+                    <div class="rooms-list">
+                        {% for room in user.created_rooms.all %}
+                        <div class="room-item">
+                            <div class="room-content">
+                                <div class="room-header">
+                                    <h5 class="room-title">{{ room.name }}</h5>
+                                    <span class="room-date">{{ room.created_at|date:"M d, Y" }}</span>
+                                </div>
+                                <p class="room-description">{{ room.description|truncatewords:10 }}</p>
+                                <div class="room-footer">
+                                    <span class="room-participants">
+                                        <i class="fas fa-users"></i> {{ room.participants.count }} participants
+                                    </span>
+                                    <a href="{% url 'rooms:room_detail' room.id %}" class="room-link">
+                                        View Room <i class="fas fa-arrow-right"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-door-closed"></i>
+                        <h5>No Rooms Yet</h5>
+                        <p class="text-muted">You haven't created any rooms yet.</p>
+                        <a href="{% url 'rooms:create_room' %}" class="btn create-room-btn">
+                            <i class="fas fa-plus-circle"></i> Create Your First Room
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 </div>
+
 {% endblock %}
