@@ -2760,7 +2760,7 @@ form.d-inline {
 
 .profile-body {
     padding: 2rem;
-    background: rgba(36, 8, 8, 0.7);
+    background: rgba(0, 0, 0, 0.94);
 }
 
 .profile-avatar {
@@ -2839,7 +2839,7 @@ form.d-inline {
 
 .rooms-body {
     padding: 2rem;
-    background: rgba(36, 8, 8, 0.7);
+    background: rgba(0, 0, 0, 0.94);
 }
 
 .create-room-btn {
@@ -3260,9 +3260,6 @@ strong
     max-height: 200px;
     overflow-y: auto;
     padding: 0.5rem;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .banned-word-item {

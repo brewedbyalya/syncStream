@@ -273,7 +273,7 @@ class WebRTCManager {
             const infoDiv = document.createElement('div');
             infoDiv.className = 'screen-share-info';
             infoDiv.innerHTML = `
-                <div class="alert alert-info mb-0">
+                <div class="alert alert-banned-words mb-0">
                     <i class="fas fa-desktop me-2"></i>
                     ${candidateData.username || 'Someone'} is sharing their screen
                 </div>
