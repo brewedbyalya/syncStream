@@ -6,11 +6,15 @@ from django.contrib import messages
 from .models import Room, Participant, Message
 from .forms import RoomForm
 import json
+import logging
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
+from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -302,41 +306,57 @@ def update_video_state_api(request, room_id):
 @require_POST
 @login_required
 def delete_message(request, room_id, message_id):
+    print(f"DEBUG: Delete message called - room: {room_id}, message: {message_id}, user: {request.user.username}")
+    
     try:
         room = get_object_or_404(Room, id=room_id)
         message = get_object_or_404(Message, id=message_id, room=room)
         
+        print(f"DEBUG: Found message - {message.id} by {message.user.username}")
+        
         if request.user != room.creator:
+            print("DEBUG: Permission denied - user is not room creator")
             return JsonResponse({'error': 'Only room creators can delete messages'}, status=403)
         
-        message_info = {
-            'id': str(message.id),
-            'content': message.message[:50] + '...' if len(message.message) > 50 else message.message,
-            'username': message.user.username
-        }
+        message_content = message.message
+        message_author = message.user.username
         
         message.delete()
-        
-        from channels.layers import get_channel_layer
-        from asgiref.sync import async_to_sync
-        
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f'room_{room_id}',
-            {
-                'type': 'message_deleted',
-                'message_id': str(message.id),
-                'deleted_by': request.user.username,
-                'message_content': message_info['content'],
-                'message_author': message_info['username']
-            }
-        )
+        print("DEBUG: Message deleted successfully")
+
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+            
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f'room_{room_id}',
+                {
+                    'type': 'message_deleted',
+                    'message_id': str(message_id),
+                    'deleted_by': str(request.user.username),
+                    'message_content': str(message_content[:100] + '...' if len(message_content) > 100 else message_content),
+                    'message_author': str(message_author)
+                }
+            )
+            print("DEBUG: WebSocket message sent")
+        except Exception as e:
+            print(f"DEBUG: WebSocket error (but continuing): {str(e)}")
         
         return JsonResponse({'success': True})
         
+    except Message.DoesNotExist:
+        print(f"DEBUG: Message not found - {message_id}")
+        return JsonResponse({'error': 'Message not found'}, status=404)
+    except Room.DoesNotExist:
+        print(f"DEBUG: Room not found - {room_id}")
+        return JsonResponse({'error': 'Room not found'}, status=404)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
-
+        print(f"DEBUG: Unexpected error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': 'Internal server error'}, status=500)
+    
 @require_POST
 @login_required
 def mute_user(request, room_id, user_id):

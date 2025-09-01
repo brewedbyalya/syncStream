@@ -23,6 +23,9 @@ let timeUpdateInterval;
 let ytReady = false;
 let pendingVideoId = null;
 
+let typingTimeout;
+let isTyping = false;
+
 
 window.onYouTubeIframeAPIError = function(error) {
     console.error('YouTube API Error:', error);
@@ -198,11 +201,20 @@ function connectWebSocket() {
 }
 
 function handleWebSocketMessage(data) {
+    console.log('WebSocket message:', data.type, data);
+    
     switch(data.type) {
         case 'chat_message':
             appendMessage(data.username, data.message, data.timestamp);
+            if (isTyping) {
+                sendTypingStop();
+            }
+            hideTypingIndicatorByName(data.username);
             break;
             
+        case 'typing_indicator': 
+            handleTypingIndicator(data);
+            break;           
         case 'video_control':
             handleVideoControl(data);
             break;
@@ -233,6 +245,75 @@ function handleWebSocketMessage(data) {
             
         default:
             console.log('Unknown message type:', data.type);
+    }
+}
+
+
+function handleTypingIndicator(data) {
+    console.log('Typing indicator received:', data);
+    
+    if (data.user_id != userId) {
+        if (data.is_typing) {
+            showTypingIndicator(data.username);
+        } else {
+            hideTypingIndicatorByName(data.username);
+        }
+    }
+}
+
+
+function showTypingIndicator(username) {
+    const indicator = document.getElementById('typing-indicator');
+    const typingUsers = document.getElementById('typing-users');
+    
+    if (!indicator || !typingUsers) {
+        console.error('Typing indicator elements not found');
+        return;
+    }
+    
+    clearTimeout(window.typingHideTimeout);
+    
+    typingUsers.textContent = `${username} is typing`;
+    indicator.classList.remove('d-none');
+    
+    window.typingHideTimeout = setTimeout(() => {
+        hideTypingIndicator();
+    }, 3000);
+}
+
+function hideTypingIndicator() {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) {
+        indicator.classList.add('d-none');
+    }
+}
+
+function hideTypingIndicatorByName(username) {
+    const indicator = document.getElementById('typing-indicator');
+    const typingUsers = document.getElementById('typing-users');
+    
+    if (!indicator || !typingUsers) return;
+    
+    if (typingUsers.textContent.includes(username)) {
+        hideTypingIndicator();
+    }
+}
+
+function sendTypingStart() {
+    if (roomSocket && roomSocket.readyState === WebSocket.OPEN && !isTyping) {
+        roomSocket.send(JSON.stringify({
+            'type': 'typing_start'
+        }));
+        isTyping = true;
+    }
+}
+
+function sendTypingStop() {
+    if (roomSocket && roomSocket.readyState === WebSocket.OPEN && isTyping) {
+        roomSocket.send(JSON.stringify({
+            'type': 'typing_stop'
+        }));
+        isTyping = false;
     }
 }
 
@@ -862,19 +943,44 @@ document.addEventListener('DOMContentLoaded', function() {
     chatIndicator = document.getElementById('chat-indicator');
 
     if (chatSend) chatSend.addEventListener('click', sendChatMessage);
-    if (chatInput) chatInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            sendChatMessage();
+    
+        if (chatInput) {
+            chatInput.addEventListener('input', function() {
+                if (!isTyping) {
+                    sendTypingStart();
+                }
+                
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    if (isTyping) {
+                        sendTypingStop();
+                    }
+                }, 1000);
+            });
+        
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (isTyping) {
+                        sendTypingStop();
+                    }
+                    sendChatMessage();
+                }
+            });
+            
+            chatInput.addEventListener('blur', function() {
+                if (isTyping) {
+                    sendTypingStop();
+                }
+            });
         }
-    });
-
-    if (loadVideoBtn) loadVideoBtn.addEventListener('click', loadVideo);
+    
+        if (loadVideoBtn) loadVideoBtn.addEventListener('click', loadVideo);
     if (videoUrlInput) videoUrlInput.addEventListener('keypress', function(e) {
         if (e.key === 'Enter') {
             loadVideo();
         }
     });
-    
+
     if (playBtn) playBtn.addEventListener('click', playVideo);
     if (pauseBtn) pauseBtn.addEventListener('click', pauseVideo);
     if (syncBtn) syncBtn.addEventListener('click', syncVideo);

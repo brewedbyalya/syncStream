@@ -223,44 +223,45 @@
     </div>
     <div class="card-body p-0">
         <div id="chat-messages" class="chat-messages chat-messages-glass custom-scrollbar">
-            {% for message in messages %}
-            <div class="message-container" data-message-id="{{ message.id }}">
-                <div class="message {% if message.user == user %}message-self{% elif message.user.username == 'System' %}message-system{% else %}message-other{% endif %}">
-                    <strong>{{ message.user.username }}</strong>
-                    <span class="message-content">{{ message.message }}</span>
-                    <small>
-                        <i class="fas fa-clock me-1"></i>{{ message.created_at|time }}
-                        {% if message.user == user %}
-                        <span class="message-status"><i class="fas fa-check-double text-info"></i></span>
-                        {% endif %}
-                    </small>
-                    
-                    {% if room.creator == user %}
-                    <button class="btn btn-sm btn-link text-danger delete-message-btn" 
-                            onclick="confirmDeleteMessage('{{ message.id }}', '{{ message.message|escapejs }}', '{{ message.user.username|escapejs }}')"
-                            title="Delete message">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
+        {% for message in messages %}
+        <div class="message-container" data-message-id="{{ message.id }}">
+            <div class="message {% if message.user == user %}message-self{% elif message.user.username == 'System' %}message-system{% else %}message-other{% endif %}">
+                <strong>{{ message.user.username }}</strong>
+                <span class="message-content">{{ message.message }}</span>
+                <small>
+                    <i class="fas fa-clock me-1"></i>{{ message.created_at|time }}
+                    {% if message.user == user %}
+                    <span class="message-status"><i class="fas fa-check-double text-info"></i></span>
                     {% endif %}
-                </div>
+                </small>
+                
+                {% if room.creator == user %}
+                <button class="btn btn-sm btn-link text-danger delete-message-btn" 
+                        onclick="deleteMessage('{{ message.id }}')"
+                        title="Delete message">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                {% endif %}
             </div>
-            {% empty %}
-            <div class="text-center text-muted py-4">
-                <i class="fas fa-comments fa-3x mb-2"></i>
-                <p>No messages yet. Start the conversation!</p>
-            </div>
-            {% endfor %}
+        </div>
+        {% empty %}
+        <div class="text-center text-muted py-4">
+            <i class="fas fa-comments fa-3x mb-2"></i>
+            <p>No messages yet. Start the conversation!</p>
+        </div>
+        {% endfor %}
         </div>
         
-        <div id="typing-indicator" class="typing-indicator d-none">
-            <span id="typing-users"></span>
-            <div class="typing-dots">
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
+            <div id="typing-indicator" class="typing-indicator d-none">
+                <div class="d-flex align-items-center px-3 py-2">
+                    <span id="typing-users" class="text-muted me-2"></span>
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
     
     <div class="card-footer">
         <div class="input-group">
@@ -448,15 +449,33 @@
 <script src="{% static 'js/room.js' %}"></script>
 <script src="{% static 'js/webrtc.js' %}"></script>
 <script>
-function confirmDeleteMessage(messageId, messageContent, username) {
-    const truncatedMessage = messageContent.length > 100 ? messageContent.substring(0, 100) + '...' : messageContent;
-    
-    if (confirm(`Are you sure you want to delete this message?\n\n"${truncatedMessage}"\n- by ${username}`)) {
-        deleteMessage(messageId);
-    }
-}
 
 function deleteMessage(messageId) {
+    console.log('Deleting message ID:', messageId);
+    
+    if (!messageId || messageId === 'undefined') {
+        console.error('Invalid message ID:', messageId);
+        showNotification('Cannot delete message: Invalid message ID', 'error');
+        return;
+    }
+    
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+    let messageContent = '';
+    let username = '';
+    
+    if (messageElement) {
+        const contentElement = messageElement.querySelector('.message-content');
+        const usernameElement = messageElement.querySelector('strong');
+        if (contentElement) messageContent = contentElement.textContent;
+        if (usernameElement) username = usernameElement.textContent;
+    }
+    
+    const truncatedMessage = messageContent.length > 50 ? messageContent.substring(0, 50) + '...' : messageContent;
+    
+    if (!confirm(`Are you sure you want to delete this message?\n\n"${truncatedMessage}"\n- by ${username}`)) {
+        return;
+    }
+    
     fetch(`/rooms/${roomId}/messages/${messageId}/delete/`, {
         method: 'POST',
         headers: {
@@ -465,16 +484,26 @@ function deleteMessage(messageId) {
         },
         credentials: 'same-origin'
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
+            if (messageElement) {
+                messageElement.remove();
+                updateMessageCount();
+            }
+            showNotification('Message deleted successfully', 'success');
         } else {
-            showNotification('Failed to delete message: ' + data.error, 'error');
+            showNotification('Failed to delete message: ' + (data.error || 'Unknown error'), 'error');
         }
     })
     .catch(error => {
         console.error('Error deleting message:', error);
-        showNotification('Error deleting message', 'error');
+        showNotification('Error deleting message: ' + error.message, 'error');
     });
 }
 
@@ -505,6 +534,7 @@ function muteUser(duration) {
         if (data.success) {
             showNotification(`Muted ${muteUserName} for ${duration} minutes`, 'success');
             bootstrap.Modal.getInstance(document.getElementById('muteUserModal')).hide();
+            updateParticipantMuteStatus(muteUserId, true);
         } else {
             showNotification('Failed to mute user: ' + data.error, 'error');
         }
@@ -530,6 +560,7 @@ function unmuteUser(userId, userName) {
     .then(data => {
         if (data.success) {
             showNotification(`Unmuted ${userName}`, 'success');
+            updateParticipantMuteStatus(userId, false);
         } else {
             showNotification('Failed to unmute user: ' + data.error, 'error');
         }
@@ -854,10 +885,10 @@ function addBannedWord() {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
+     if (data.success) {
             wordInput.value = '';
             showNotification(data.message, 'success');
-            loadBannedWords();
+            addBannedWordToUI(word);
         } else {
             showNotification('Failed to add banned word: ' + data.error, 'error');
         }
@@ -884,7 +915,7 @@ function removeBannedWord(word) {
     .then(data => {
         if (data.success) {
             showNotification(data.message, 'success');
-            loadBannedWords();
+            removeBannedWordFromUI(word);
         } else {
             showNotification('Failed to remove banned word: ' + data.error, 'error');
         }
@@ -893,6 +924,44 @@ function removeBannedWord(word) {
         console.error('Error removing banned word:', error);
         showNotification('Error removing banned word', 'error');
     });
+}
+
+function addBannedWordToUI(word) {
+    const container = document.getElementById('banned-words-list');
+    const emptyState = document.getElementById('no-banned-words');
+    
+    if (emptyState.style.display !== 'none') {
+        emptyState.style.display = 'none';
+    }
+    
+    const wordElement = document.createElement('div');
+    wordElement.className = 'banned-word-item';
+    wordElement.innerHTML = `
+        <span class="banned-word-text">${word}</span>
+        <button class="btn btn-sm btn-outline-danger" 
+                onclick="removeBannedWord('${word.replace(/'/g, "\\'")}')"
+                title="Remove banned word">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    container.appendChild(wordElement);
+}
+
+function removeBannedWordFromUI(word) {
+    const container = document.getElementById('banned-words-list');
+    const wordElements = container.querySelectorAll('.banned-word-item');
+    
+    wordElements.forEach(element => {
+        const wordText = element.querySelector('.banned-word-text').textContent;
+        if (wordText === word) {
+            element.remove();
+        }
+    });
+    
+    if (container.children.length === 0) {
+        document.getElementById('no-banned-words').style.display = 'block';
+    }
 }
 
 function loadBannedWords() {
@@ -992,7 +1061,10 @@ document.getElementById('chat-input').addEventListener('input', function() {
 
 function updateMessageCount() {
     const count = document.querySelectorAll('.message-container').length;
-    document.getElementById('message-count').textContent = count;
+    const countElement = document.getElementById('message-count');
+    if (countElement) {
+        countElement.textContent = count;
+    }
 }
 
 updateMessageCount();

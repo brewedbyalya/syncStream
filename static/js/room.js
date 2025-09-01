@@ -201,19 +201,20 @@ function connectWebSocket() {
 }
 
 function handleWebSocketMessage(data) {
+    console.log('WebSocket message:', data.type, data);
+    
     switch(data.type) {
         case 'chat_message':
             appendMessage(data.username, data.message, data.timestamp);
-
             if (isTyping) {
                 sendTypingStop();
             }
             hideTypingIndicatorByName(data.username);
             break;
             
-        case 'typing_indicator':
+        case 'typing_indicator': 
             handleTypingIndicator(data);
-            break;            
+            break;           
         case 'video_control':
             handleVideoControl(data);
             break;
@@ -237,9 +238,21 @@ function handleWebSocketMessage(data) {
         case 'webrtc_signal':
             handleWebRTCSignal(data);
             break;
+
+        case 'message_deleted':
+            handleMessageDeleted(data);
+            break;
             
         case 'pong':
             handlePingPong(data);
+            break;
+
+        case 'user_muted':
+            handleUserMuted(data);
+            break;
+            
+        case 'user_unmuted':
+            handleUserUnmuted(data);
             break;
             
         default:
@@ -248,7 +261,36 @@ function handleWebSocketMessage(data) {
 }
 
 
+function handleMessageDeleted(data) {
+    console.log('Handling message deletion via WebSocket:', data);
+    
+    const messageElement = document.querySelector(`[data-message-id="${data.message_id}"]`);
+    if (messageElement) {
+        messageElement.remove();
+        updateMessageCount();
+        
+        if (data.deleted_by !== username) {
+            const truncatedContent = data.message_content.length > 100 ? 
+                data.message_content.substring(0, 100) + '...' : data.message_content;
+            showNotification(`Message "${truncatedContent}" by ${data.message_author} was deleted by ${data.deleted_by}`, 'info');
+        }
+    }
+}
+
+
+function handleUserMuted(data) {
+    showNotification(`${data.username} was muted by ${data.muted_by} for ${data.duration} minutes`, 'warning');
+    updateParticipantMuteStatus(data.user_id, true);
+}
+
+function handleUserUnmuted(data) {
+    showNotification(`${data.username} was unmuted by ${data.unmuted_by}`, 'success');
+    updateParticipantMuteStatus(data.user_id, false);
+}
+
 function handleTypingIndicator(data) {
+    console.log('Typing indicator received:', data);
+    
     if (data.user_id != userId) {
         if (data.is_typing) {
             showTypingIndicator(data.username);
@@ -258,24 +300,31 @@ function handleTypingIndicator(data) {
     }
 }
 
+
 function showTypingIndicator(username) {
     const indicator = document.getElementById('typing-indicator');
     const typingUsers = document.getElementById('typing-users');
     
-    if (!indicator || !typingUsers) return;
-    
-    const currentUsers = typingUsers.textContent;
-    if (!currentUsers.includes(username)) {
-        const newUsers = currentUsers ? `${currentUsers}, ${username}` : username;
-        typingUsers.textContent = newUsers;
+    if (!indicator || !typingUsers) {
+        console.error('Typing indicator elements not found');
+        return;
     }
     
+    clearTimeout(window.typingHideTimeout);
+    
+    typingUsers.textContent = `${username} is typing`;
     indicator.classList.remove('d-none');
     
-    clearTimeout(window.typingHideTimeout);
     window.typingHideTimeout = setTimeout(() => {
-        hideTypingIndicatorByName(username);
+        hideTypingIndicator();
     }, 3000);
+}
+
+function hideTypingIndicator() {
+    const indicator = document.getElementById('typing-indicator');
+    if (indicator) {
+        indicator.classList.add('d-none');
+    }
 }
 
 function hideTypingIndicatorByName(username) {
@@ -284,14 +333,8 @@ function hideTypingIndicatorByName(username) {
     
     if (!indicator || !typingUsers) return;
     
-    const currentUsers = typingUsers.textContent.split(', ');
-    const filteredUsers = currentUsers.filter(user => user !== username);
-    
-    if (filteredUsers.length === 0) {
-        indicator.classList.add('d-none');
-        typingUsers.textContent = '';
-    } else {
-        typingUsers.textContent = filteredUsers.join(', ');
+    if (typingUsers.textContent.includes(username)) {
+        hideTypingIndicator();
     }
 }
 
@@ -939,35 +982,36 @@ document.addEventListener('DOMContentLoaded', function() {
     chatIndicator = document.getElementById('chat-indicator');
 
     if (chatSend) chatSend.addEventListener('click', sendChatMessage);
-     if (chatInput) {
-        chatInput.addEventListener('input', function() {
-            if (!isTyping) {
-                sendTypingStart();
-            }
+    
+        if (chatInput) {
+            chatInput.addEventListener('input', function() {
+                if (!isTyping) {
+                    sendTypingStart();
+                }
+                
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(() => {
+                    if (isTyping) {
+                        sendTypingStop();
+                    }
+                }, 1000);
+            });
+        
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    if (isTyping) {
+                        sendTypingStop();
+                    }
+                    sendChatMessage();
+                }
+            });
             
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
+            chatInput.addEventListener('blur', function() {
                 if (isTyping) {
                     sendTypingStop();
                 }
-            }, 1000);
-        });
-        
-        chatInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                if (isTyping) {
-                    sendTypingStop();
-                }
-                sendChatMessage();
-            }
-        });
-        
-        chatInput.addEventListener('blur', function() {
-            if (isTyping) {
-                sendTypingStop();
-            }
-        });
-    }
+            });
+        }
     
         if (loadVideoBtn) loadVideoBtn.addEventListener('click', loadVideo);
     if (videoUrlInput) videoUrlInput.addEventListener('keypress', function(e) {
