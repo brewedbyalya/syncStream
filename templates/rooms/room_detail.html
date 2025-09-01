@@ -885,10 +885,9 @@ function addBannedWord() {
     })
     .then(response => response.json())
     .then(data => {
-     if (data.success) {
+        if (data.success) {
             wordInput.value = '';
             showNotification(data.message, 'success');
-            addBannedWordToUI(word);
         } else {
             showNotification('Failed to add banned word: ' + data.error, 'error');
         }
@@ -915,7 +914,6 @@ function removeBannedWord(word) {
     .then(data => {
         if (data.success) {
             showNotification(data.message, 'success');
-            removeBannedWordFromUI(word);
         } else {
             showNotification('Failed to remove banned word: ' + data.error, 'error');
         }
@@ -930,8 +928,15 @@ function addBannedWordToUI(word) {
     const container = document.getElementById('banned-words-list');
     const emptyState = document.getElementById('no-banned-words');
     
-    if (emptyState.style.display !== 'none') {
+    if (emptyState && emptyState.style.display !== 'none') {
         emptyState.style.display = 'none';
+    }
+    
+    const existingWords = container.querySelectorAll('.banned-word-text');
+    for (const element of existingWords) {
+        if (element.textContent === word) {
+            return;
+        }
     }
     
     const wordElement = document.createElement('div');
@@ -960,11 +965,16 @@ function removeBannedWordFromUI(word) {
     });
     
     if (container.children.length === 0) {
-        document.getElementById('no-banned-words').style.display = 'block';
+        const emptyState = document.getElementById('no-banned-words');
+        if (emptyState) {
+            emptyState.style.display = 'block';
+        }
     }
 }
 
 function loadBannedWords() {
+    if (!isRoomCreator) return;
+    
     fetch(`/rooms/${roomId}/banned-words/`, {
         credentials: 'same-origin'
     })
@@ -983,30 +993,42 @@ function displayBannedWords(words) {
     const container = document.getElementById('banned-words-list');
     const emptyState = document.getElementById('no-banned-words');
     
-    if (words.length === 0) {
-        emptyState.style.display = 'block';
-        container.innerHTML = '';
+    if (!container) {
+        console.error('Banned words container not found');
         return;
     }
     
-    emptyState.style.display = 'none';
+    console.log('Displaying banned words:', words);
     
-    const wordsHtml = words.map(word => `
-        <div class="banned-word-item">
-            <span class="banned-word-text">${word}</span>
-            <button class="btn btn-sm btn-outline-danger" 
-                    onclick="removeBannedWord('${word.replace(/'/g, "\\'")}')"
-                    title="Remove banned word">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `).join('');
-    
-    container.innerHTML = wordsHtml;
-}
-
-if (isRoomCreator) {
-    document.addEventListener('DOMContentLoaded', loadBannedWords);
+    if (!words || words.length === 0) {
+        if (emptyState) {
+            emptyState.style.display = 'block';
+        }
+        container.innerHTML = '';
+        if (emptyState) {
+            container.appendChild(emptyState);
+        }
+    } else {
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+        
+        container.innerHTML = '';
+        
+        words.forEach(word => {
+            const wordElement = document.createElement('div');
+            wordElement.className = 'banned-word-item';
+            wordElement.innerHTML = `
+                <span class="banned-word-text">${word}</span>
+                <button class="btn btn-sm btn-outline-danger" 
+                        onclick="removeBannedWord('${word.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')"
+                        title="Remove banned word">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(wordElement);
+        });
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {

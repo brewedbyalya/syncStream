@@ -288,6 +288,28 @@ function handleUserUnmuted(data) {
     updateParticipantMuteStatus(data.user_id, false);
 }
 
+function handleBannedWordAdded(data) {
+    console.log('Banned word added:', data);
+    
+    if (isRoomCreator) {
+        addBannedWordToUI(data.word);
+        if (data.added_by !== username) {
+            showNotification(`"${data.word}" added to banned words by ${data.added_by}`, 'success');
+        }
+    }
+}
+
+function handleBannedWordRemoved(data) {
+    console.log('Banned word removed:', data);
+    
+    if (isRoomCreator) {
+        removeBannedWordFromUI(data.word);
+        if (data.removed_by !== username) {
+            showNotification(`"${data.word}" removed from banned words by ${data.removed_by}`, 'info');
+        }
+    }
+}
+
 function handleTypingIndicator(data) {
     console.log('Typing indicator received:', data);
     
@@ -1019,6 +1041,11 @@ document.addEventListener('DOMContentLoaded', function() {
             loadVideo();
         }
     });
+
+        if (isRoomCreator) {
+        console.log('Loading banned words for room creator...');
+        loadBannedWords();
+    }
 
     if (playBtn) playBtn.addEventListener('click', playVideo);
     if (pauseBtn) pauseBtn.addEventListener('click', pauseVideo);

@@ -432,21 +432,29 @@ def add_banned_word(request, room_id):
         room = get_object_or_404(Room, id=room_id, creator=request.user)
         word = request.POST.get('word', '').strip()
         
-        if not word:
-            return JsonResponse({'error': 'Word cannot be empty'}, status=400)
-        
-        if len(word) < 2:
-            return JsonResponse({'error': 'Word must be at least 2 characters'}, status=400)
+        print(f"Adding banned word: {word} to room: {room_id}")
         
         room.add_banned_word(word)
         
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'room_{room_id}',
+            {
+                'type': 'banned_word_added',
+                'word': str(word),
+                'added_by': str(request.user.username)
+            }
+        )
+        
+        print(f"WebSocket message sent for word: {word}")
+        
         return JsonResponse({
             'success': True, 
-            'banned_words': room.get_banned_words(),
             'message': f'Added "{word}" to banned words'
         })
         
     except Exception as e:
+        print(f"Error adding banned word: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
 
 @require_POST
@@ -461,9 +469,18 @@ def remove_banned_word(request, room_id):
         
         room.remove_banned_word(word)
         
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'room_{room_id}',
+            {
+                'type': 'banned_word_removed',
+                'word': str(word),
+                'removed_by': str(request.user.username),
+            }
+        )
+        
         return JsonResponse({
             'success': True, 
-            'banned_words': room.get_banned_words(),
             'message': f'Removed "{word}" from banned words'
         })
         

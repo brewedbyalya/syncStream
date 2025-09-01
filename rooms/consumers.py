@@ -369,6 +369,20 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'message_author': event['message_author']
             }))
 
+    async def banned_word_added(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'banned_word_added',
+            'word': event['word'],
+            'added_by': event['added_by']
+    }))
+
+    async def banned_word_removed(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'banned_word_removed',
+            'word': event['word'],
+            'removed_by': event['removed_by']
+        }))
+
     async def user_muted(self, event):
         await self.send(text_data=json.dumps({
             'type': 'user_muted',
