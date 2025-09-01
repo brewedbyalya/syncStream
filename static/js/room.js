@@ -18,42 +18,66 @@ let screenShareContainer, onlineCount, chatIndicator;
 let youTubeAPILoaded = false;
 let youTubeAPILoadCallbacks = [];
 
-let tag = document.createElement('script');
-tag.src = "https://www.youtube.com/iframe_api";
-let firstScriptTag = document.getElementsByTagName('script')[0];
-firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+let timeUpdateInterval;
 
-function onYouTubeIframeAPIReady() {
-    youTubeAPILoaded = true;
+window.onYouTubeIframeAPIError = function(error) {
+    console.error('YouTube API Error:', error);
+    showNotification('YouTube player failed to load', 'error');
     youTubeAPILoadCallbacks.forEach(callback => callback());
     youTubeAPILoadCallbacks = [];
-    console.log('YouTube IFrame API ready');
+};
+
+function loadYouTubeAPI() {
+    if (window.YT && window.YT.Player) {
+        youTubeAPILoaded = true;
+        return Promise.resolve();
+    }
+    
+    if (document.querySelector('script[src*="youtube.com/iframe_api"]')) {
+        return new Promise(resolve => {
+            youTubeAPILoadCallbacks.push(resolve);
+        });
+    }
+    
+    return new Promise((resolve, reject) => {
+        window.onYouTubeIframeAPIReady = function() {
+            youTubeAPILoaded = true;
+            resolve();
+            youTubeAPILoadCallbacks.forEach(callback => callback());
+            youTubeAPILoadCallbacks = [];
+        };
+        
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        tag.onerror = reject;
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+    });
 }
 
-function initializeYouTubePlayer() {
-    if (typeof YT !== 'undefined' && YT.Player) {
+async function initializeYouTubePlayer() {
+    try {
+        await loadYouTubeAPI();
         createYouTubePlayer();
-    } else {
-        if (!window.YTConfig) {
-            window.onYouTubeIframeAPIReady = function() {
-                youTubeAPILoaded = true;
-                createYouTubePlayer();
-            };
-            
-            const tag = document.createElement('script');
-            tag.src = "https://www.youtube.com/iframe_api";
-            const firstScriptTag = document.getElementsByTagName('script')[0];
-            firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
-        }
+    } catch (error) {
+        console.error('Failed to load YouTube API:', error);
+        showNotification('Failed to load YouTube player', 'error');
     }
 }
 
 function createYouTubePlayer() {
     const youtubePlayerElement = document.getElementById('youtube-player');
-    if (!youtubePlayerElement) return;
+    if (!youtubePlayerElement) {
+        console.error('YouTube player element not found');
+        return;
+    }
     
     try {
-        player = new YT.Player('youtube-player', {
+        if (window.player) {
+            window.player.destroy();
+        }
+        
+        window.player = new YT.Player('youtube-player', {
             height: '100%',
             width: '100%',
             playerVars: {
@@ -72,6 +96,7 @@ function createYouTubePlayer() {
         });
     } catch (error) {
         console.error('Error creating YouTube player:', error);
+        showNotification('Error creating YouTube player', 'error');
     }
 }
 
@@ -272,69 +297,7 @@ function sendChatMessage() {
     }
 }
 
-function loadVideo() {
-    const url = videoUrlInput.value.trim();
-    if (url && isValidVideoUrl(url)) {
-        const videoInfo = extractVideoId(url);
-        if (videoInfo) {
-            sendVideoControl('load', 0, url);
-            loadVideoToPlayer(url);
-        } else {
-            showNotification('Unsupported video URL format', 'error');
-        }
-    } else {
-        showNotification('Please enter a valid YouTube, Vimeo, or video file URL', 'error');
-    }
-}
-
-function loadVideoToPlayer(url) {
-    videoUrl = url;
-    const videoInfo = extractVideoId(url);
-    
-    if (!videoInfo) {
-        showNotification('Unsupported video format', 'error');
-        return;
-    }
-    
-    const videoContainer = document.getElementById('video-container');
-    if (!videoContainer) return;
-    
-    videoContainer.innerHTML = '';
-    
-    videoType = videoInfo.type;
-    
-    switch(videoType) {
-        case 'youtube':
-            loadYouTubeVideo(videoInfo.id);
-            break;
-        case 'vimeo':
-            loadVimeoVideo(videoInfo.id);
-            break;
-        case 'direct':
-            loadGenericVideo(videoInfo.id);
-            break;
-        default:
-            showNotification('Unsupported video format', 'error');
-            return;
-    }
-
-    const videoControls = document.getElementById('video-controls');
-    if (videoControls) {
-        videoControls.classList.remove('d-none');
-    }
-    
-    const placeholder = document.getElementById('player-placeholder');
-    if (placeholder) {
-        placeholder.classList.add('d-none');
-    }
-    
-    const videoTypeDisplay = document.getElementById('video-type-display');
-    if (videoTypeDisplay) {
-        videoTypeDisplay.textContent = videoType.charAt(0).toUpperCase() + videoType.slice(1);
-    }
-}
-
-function loadYouTubeVideo(videoId) {
+async function loadYouTubeVideo(videoId) {
     const videoContainer = document.getElementById('video-container');
     if (!videoContainer) return;
     
@@ -344,14 +307,17 @@ function loadYouTubeVideo(videoId) {
     youtubeDiv.id = 'youtube-player';
     videoContainer.appendChild(youtubeDiv);
     
-    if (typeof YT !== 'undefined' && YT.Player) {
-        createYouTubePlayer();
-    } else {
-        if (window.onYouTubeIframeAPIReady) {
-            youTubeAPILoadCallbacks.push(createYouTubePlayer);
-        } else {
-            showNotification('YouTube player failed to load', 'error');
+    try {
+        await initializeYouTubePlayer();
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (window.player && window.player.cueVideoById) {
+            window.player.cueVideoById(videoId);
         }
+    } catch (error) {
+        console.error('Error loading YouTube video:', error);
+        showNotification('Failed to load YouTube video', 'error');
     }
 }
 
@@ -419,6 +385,86 @@ function loadGenericVideo(url) {
     videoElement.addEventListener('canplay', () => {
         console.log('Video can play');
     });
+}
+
+function cleanupYouTubePlayer() {
+    if (window.player) {
+        try {
+            window.player.destroy();
+            window.player = null;
+        } catch (error) {
+            console.error('Error destroying YouTube player:', error);
+        }
+    }
+}
+
+async function loadVideoToPlayer(url) {
+    videoUrl = url;
+    const videoInfo = extractVideoId(url);
+    
+    if (!videoInfo) {
+        showNotification('Unsupported video format', 'error');
+        return;
+    }
+    
+    const videoContainer = document.getElementById('video-container');
+    if (!videoContainer) return;
+    
+    cleanupYouTubePlayer();
+    
+    videoContainer.innerHTML = '';
+    
+    videoType = videoInfo.type;
+    
+    try {
+        switch(videoType) {
+            case 'youtube':
+                await loadYouTubeVideo(videoInfo.id);
+                break;
+            case 'vimeo':
+                loadVimeoVideo(videoInfo.id);
+                break;
+            case 'direct':
+                loadGenericVideo(videoInfo.id);
+                break;
+            default:
+                showNotification('Unsupported video format', 'error');
+                return;
+        }
+
+        const videoControls = document.getElementById('video-controls');
+        if (videoControls) {
+            videoControls.classList.remove('d-none');
+        }
+        
+        const placeholder = document.getElementById('player-placeholder');
+        if (placeholder) {
+            placeholder.classList.add('d-none');
+        }
+        
+        const videoTypeDisplay = document.getElementById('video-type-display');
+        if (videoTypeDisplay) {
+            videoTypeDisplay.textContent = videoType.charAt(0).toUpperCase() + videoType.slice(1);
+        }
+    } catch (error) {
+        console.error('Error loading video:', error);
+        showNotification('Error loading video', 'error');
+    }
+}
+
+function loadVideo() {
+    const url = videoUrlInput.value.trim();
+    if (url && isValidVideoUrl(url)) {
+        const videoInfo = extractVideoId(url);
+        if (videoInfo) {
+            sendVideoControl('load', 0, url);
+            loadVideoToPlayer(url);
+        } else {
+            showNotification('Unsupported video URL format', 'error');
+        }
+    } else {
+        showNotification('Please enter a valid YouTube, Vimeo, or video file URL', 'error');
+    }
 }
 
 function playVideo() {
@@ -660,14 +706,6 @@ function isValidVideoUrl(url) {
     return patterns.some(pattern => pattern.test(url));
 }
 
-function loadVideo() {
-    const url = videoUrlInput.value.trim();
-    if (url && isValidVideoUrl(url)) {
-    } else {
-        showNotification('Please enter a valid YouTube, Vimeo, or video file URL', 'error');
-    }
-}
-
 function showNotification(message, type = 'info') {
     document.querySelectorAll('.notification-container').forEach(alert => alert.remove());
     
@@ -757,8 +795,6 @@ function handleFullscreenChange() {
     }
 }
 
-let timeUpdateInterval;
-
 document.addEventListener('DOMContentLoaded', function() {
     chatMessages = document.getElementById('chat-messages');
     chatInput = document.getElementById('chat-input');
@@ -808,6 +844,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 window.addEventListener('beforeunload', function() {
+    cleanupYouTubePlayer();
+    
     if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
         roomSocket.close(1000, 'Page navigation');
     }

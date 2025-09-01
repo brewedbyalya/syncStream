@@ -781,7 +781,7 @@ body.dark-theme {
     min-height: 0;
 }
 
-.video-container-wrapper {
+.video-container-wrapper{
     position: relative;
     width: 100%;
     padding-bottom: 56.25%;
@@ -1929,6 +1929,7 @@ form.d-inline {
 }
 
 .join-room-title {
+    font-family: 'Orbitron', sans-serif;
     margin: 0;
     font-weight: 600;
     display: flex;
@@ -3172,12 +3173,16 @@ form.d-inline {
     }
 }
 
-strong 
-{
+.text-primary {
+    color: var(--golden-sand);
+}
+
+strong {
     color: white;
 }
 
-.max-users{
+
+.max-users {
     color: var(--golden-sand);
 }
 
