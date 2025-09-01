@@ -504,8 +504,7 @@ def kick_user(request, room_id, user_id):
         if target_user == request.user:
             return JsonResponse({'error': 'Cannot kick yourself'}, status=400)
         
-        participant.is_online = False
-        participant.save()
+        participant.delete()
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
@@ -532,4 +531,80 @@ def kick_user(request, room_id, user_id):
         
     except Exception as e:
         logger.error(f"Error kicking user: {str(e)}")
+        return JsonResponse({'error': 'Internal server error'}, status=500)
+
+@require_POST
+@login_required
+def ban_user(request, room_id, user_id):
+    try:
+        room = get_object_or_404(Room, id=room_id)
+        target_user = get_object_or_404(User, id=user_id)
+        participant = get_object_or_404(Participant, room=room, user=target_user)
+        
+        if request.user != room.creator:
+            return JsonResponse({'error': 'Only room creators can ban users'}, status=403)
+        
+        if target_user == request.user:
+            return JsonResponse({'error': 'Cannot ban yourself'}, status=400)
+        
+        participant.ban(request.user)
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'room_{room_id}',
+            {
+                'type': 'user_banned',
+                'user_id': str(target_user.id),
+                'username': target_user.username,
+                'banned_by': request.user.username
+            }
+        )
+        
+        async_to_sync(channel_layer.group_send)(
+            f"user_{target_user.id}",
+            {
+                'type': 'you_were_banned',
+                'room_id': str(room_id),
+                'room_name': room.name,
+                'banned_by': request.user.username
+            }
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Error banning user: {str(e)}")
+        return JsonResponse({'error': 'Internal server error'}, status=500)
+
+@require_POST
+@login_required
+def unban_user(request, room_id, user_id):
+    try:
+        room = get_object_or_404(Room, id=room_id)
+        target_user = get_object_or_404(User, id=user_id)
+        participant = get_object_or_404(Participant, room=room, user=target_user)
+        
+        if request.user != room.creator:
+            return JsonResponse({'error': 'Only room creators can unban users'}, status=403)
+        
+        if not participant.is_banned:
+            return JsonResponse({'error': 'User is not banned'}, status=400)
+        
+        participant.unban()
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'room_{room_id}',
+            {
+                'type': 'user_unbanned',
+                'user_id': str(target_user.id),
+                'username': target_user.username,
+                'unbanned_by': request.user.username
+            }
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Error unbanning user: {str(e)}")
         return JsonResponse({'error': 'Internal server error'}, status=500)

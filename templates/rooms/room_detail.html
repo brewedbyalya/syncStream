@@ -316,53 +316,73 @@
             <div class="card-body">
                 <div class="participants-grid">
                     {% for participant in room.participants.all %}
-                    <div class="participant-card {% if participant.is_online %}participant-card-online{% else %}participant-card-offline{% endif %} {% if participant.user == room.creator %}participant-card-creator{% endif %} {% if participant.is_currently_muted %}participant-muted{% endif %} slide-in-right"
-                         data-user-id="{{ participant.user.id }}">
-                        <div class="participant-avatar">
-                            <i class="fas fa-user"></i>
-                            {% if participant.is_currently_muted %}
-                            <span class="muted-badge" title="Muted">
-                                <i class="fas fa-volume-mute"></i>
-                            </span>
-                            {% endif %}
-                        </div>
-                        <strong class="participant-name">{{ participant.user.username }}</strong>
-                        {% if participant.user == room.creator %}
-                        <div class="text-warning small">
-                            <i class="fas fa-crown" title="Room Creator"></i> Creator
-                        </div>
-                        {% endif %}
-                        <div class="small">
-                            {% if participant.is_online %}
-                            <span class="status-online" title="Online">● Online</span>
-                            {% else %}
-                            <span class="status-offline" title="Offline">● Offline</span>
-                            {% endif %}
-                        </div>
-                        
-                        {% if room.creator == user and participant.user != user %}
-                        <div class="participant-actions">
-                            {% if participant.is_currently_muted %}
-                            <button class="btn btn-sm btn-success" 
-                                    onclick="unmuteUser('{{ participant.user.id }}', '{{ participant.user.username|escapejs }}')"
-                                    title="Unmute user">
-                                <i class="fas fa-volume-up"></i>
-                            </button>
-                            {% else %}
-                            <button class="btn btn-sm btn-warning" 
-                                    onclick="showMuteModal('{{ participant.user.id }}', '{{ participant.user.username|escapejs }}')"
-                                    title="Mute user">
-                                <i class="fas fa-volume-mute"></i>
-                            </button>
-                            {% endif %}
-                             <button class="btn btn-sm btn-danger" 
-                                onclick="kickUser('{{ participant.user.id }}', '{{ participant.user.username|escapejs }}')"
-                                title="Kick user from room">
-                            <i class="fas fa-user-times"></i>
-                        </button>
-                    </div>
-                    {% endif %}
-                        </div>
+                    <div class="participant-card {% if participant.is_online %}participant-card-online{% else %}participant-card-offline{% endif %} {% if participant.user == room.creator %}participant-card-creator{% endif %} {% if participant.is_currently_muted %}participant-muted{% endif %} {% if participant.is_banned %}participant-banned{% endif %}"
+     data-user-id="{{ participant.user.id }}">
+    <div class="participant-avatar">
+        <i class="fas fa-user"></i>
+        {% if participant.is_currently_muted %}
+        <span class="muted-badge" title="Muted">
+            <i class="fas fa-volume-mute"></i>
+        </span>
+        {% endif %}
+        {% if participant.is_banned %}
+        <span class="banned-badge" title="Banned">
+            <i class="fas fa-ban"></i>
+        </span>
+        {% endif %}
+    </div>
+    <strong class="participant-name">{{ participant.user.username }}</strong>
+    {% if participant.user == room.creator %}
+    <div class="text-warning small">
+        <i class="fas fa-crown" title="Room Creator"></i> Creator
+    </div>
+    {% endif %}
+    <div class="small">
+        {% if participant.is_online %}
+        <span class="status-online" title="Online">● Online</span>
+        {% else %}
+        <span class="status-offline" title="Offline">● Offline</span>
+        {% endif %}
+    </div>
+    
+    {% if room.creator == user and participant.user != user %}
+    <div class="participant-actions">
+            {% if participant.is_currently_muted %}
+            <button class="btn btn-sm btn-success" 
+                    onclick="unmuteUser('{{ participant.user.id }}', '{{ participant.user.username|escapejs }}')"
+                    title="Unmute user">
+                <i class="fas fa-volume-up"></i>
+            </button>
+            {% else %}
+            <button class="btn btn-sm btn-warning" 
+                    onclick="showMuteModal('{{ participant.user.id }}', '{{ participant.user.username|escapejs }}')"
+                    title="Mute user">
+                <i class="fas fa-volume-mute"></i>
+            </button>
+            {% endif %}
+        
+            <button class="btn btn-sm btn-danger" 
+                    onclick="kickUser('{{ participant.user.id }}', '{{ participant.user.username|escapejs }}')"
+                    title="Kick user from room">
+                <i class="fas fa-user-times"></i>
+            </button>
+        
+            {% if participant.is_banned %}
+            <button class="btn btn-sm btn-success" 
+                    onclick="unbanUser('{{ participant.user.id }}', '{{ participant.user.username|escapejs }}')"
+                    title="Unban user">
+                <i class="fas fa-user-check"></i>
+            </button>
+            {% else %}
+            <button class="btn btn-sm btn-danger" 
+                    onclick="banUser('{{ participant.user.id }}', '{{ participant.user.username|escapejs }}')"
+                    title="Permanently ban user">
+                <i class="fas fa-ban"></i>
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
                     {% endfor %}
                 </div>
             </div>
@@ -644,6 +664,14 @@ function handleWebSocketMessage(data) {
             
         case 'webrtc_signal':
             handleWebRTCSignal(data);
+            break;
+
+        case 'user_kicked':
+            handleUserKicked(data);
+            break;
+            
+        case 'you_were_kicked':
+            handleYouWereKicked(data);
             break;
             
         case 'pong':

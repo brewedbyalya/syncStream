@@ -40,6 +40,12 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 await self.close(code=4001)
                 return
 
+            is_banned = await self.check_if_banned(room)
+            if is_banned:
+                logger.warning(f"User {self.user.id} is banned from room {self.room_id}")
+                await self.close(code=4005)
+                return
+
             if room.is_private:
                 has_access = await self.check_room_access(room)
                 if not has_access:
@@ -417,6 +423,30 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'unmuted_by': event['unmuted_by']
         }))
 
+    async def user_banned(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_banned',
+            'user_id': event['user_id'],
+            'username': event['username'],
+            'banned_by': event['banned_by']
+        }))
+
+    async def you_were_banned(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'you_were_banned',
+            'room_id': event['room_id'],
+            'room_name': event['room_name'],
+            'banned_by': event['banned_by']
+        }))
+
+    async def user_unbanned(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_unbanned',
+            'user_id': event['user_id'],
+            'username': event['username'],
+            'unbanned_by': event['unbanned_by']
+        }))
+
     async def handle_chat_message(self, data):
         try:
             message = data.get('message', '').strip()
@@ -501,8 +531,30 @@ class RoomConsumer(AsyncWebsocketConsumer):
             return None
 
     @database_sync_to_async
+    def check_if_banned(self, room):
+        try:
+            return Participant.objects.filter(
+                room=room, 
+                user=self.user, 
+                is_banned=True
+            ).exists()
+        except Exception as e:
+            logger.error(f"Error checking ban status: {str(e)}")
+            return False
+
+    @database_sync_to_async
     def check_room_access(self, room):
         try:
+            is_banned = Participant.objects.filter(
+                room=room, 
+                user=self.user, 
+                is_banned=True
+            ).exists()
+        
+            if is_banned:
+                logger.warning(f"User {self.user.id} is banned from room {self.room_id}")
+                return False
+                
             is_participant = Participant.objects.filter(
                 room=room, 
                 user=self.user, 
@@ -512,6 +564,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             is_creator = room.creator == self.user
             
             return is_participant or is_creator
+            
         except Exception as e:
             logger.error(f"Error checking room access: {str(e)}")
             return False

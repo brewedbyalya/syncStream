@@ -176,6 +176,9 @@ class Participant(models.Model):
     is_muted = models.BooleanField(default=False)
     muted_until = models.DateTimeField(null=True, blank=True)
     muted_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='muted_users')
+    is_banned = models.BooleanField(default=False)
+    banned_at = models.DateTimeField(null=True, blank=True)
+    banned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='banned_users')
     
     class Meta:
         unique_together = ('room', 'user')
@@ -211,6 +214,19 @@ class Participant(models.Model):
             self.unmute()
             return False
         return True
+
+    def ban(self, banned_by):
+        self.is_online = False
+        self.is_banned = True
+        self.banned_at = timezone.now()
+        self.banned_by = banned_by
+        self.save()
+    
+    def unban(self):
+        self.is_banned = False
+        self.banned_at = None
+        self.banned_by = None
+        self.save()
 
 class Message(models.Model):
     MESSAGE_TYPES = (
