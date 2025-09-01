@@ -20,6 +20,9 @@ let youTubeAPILoadCallbacks = [];
 
 let timeUpdateInterval;
 
+let ytReady = false;
+let pendingVideoId = null;
+
 window.onYouTubeIframeAPIError = function(error) {
     console.error('YouTube API Error:', error);
     showNotification('YouTube player failed to load', 'error');
@@ -66,46 +69,50 @@ async function initializeYouTubePlayer() {
 }
 
 function createYouTubePlayer() {
-    const youtubePlayerElement = document.getElementById('youtube-player');
-    if (!youtubePlayerElement) {
-        console.error('YouTube player element not found');
-        return;
-    }
-    
-    try {
-        if (window.player) {
-            window.player.destroy();
-        }
-        
-        window.player = new YT.Player('youtube-player', {
-            height: '100%',
-            width: '100%',
-            playerVars: {
-                'playsinline': 1,
-                'controls': 1,
-                'modestbranding': 1,
-                'rel': 0,
-                'enablejsapi': 1,
-                'origin': window.location.origin
-            },
-            events: {
-                'onReady': onPlayerReady,
-                'onStateChange': onPlayerStateChange,
-                'onError': onPlayerError
-            }
-        });
-    } catch (error) {
-        console.error('Error creating YouTube player:', error);
-        showNotification('Error creating YouTube player', 'error');
-    }
+  const el = document.getElementById('youtube-player');
+  if (!el) { console.error('YouTube player element not found'); return; }
+
+  try {
+    if (window.player) window.player.destroy();
+
+    const currentOrigin = window.location.origin;
+
+    window.player = new YT.Player('youtube-player', {
+      height: '100%',
+      width: '100%',
+      host: 'https://www.youtube.com',
+      playerVars: {
+        playsinline: 1,
+        controls: 1,
+        modestbranding: 1,
+        rel: 0,
+        enablejsapi: 1,
+        origin: currentOrigin
+      },
+      events: {
+        onReady: onPlayerReady,
+        onStateChange: onPlayerStateChange,
+        onError: onPlayerError
+      }
+    });
+    player = window.player;
+  } catch (err) {
+    console.error('Error creating YouTube player:', err);
+    showNotification('Error creating YouTube player', 'error');
+  }
 }
 
-function onPlayerReady(event) {
-    console.log('YouTube player ready');
-    const videoControls = document.getElementById('video-controls');
-    if (videoControls) {
-        videoControls.classList.remove('d-none');
-    }
+function onPlayerReady() {
+  ytReady = true;
+  console.log('YouTube player ready');
+
+  if (pendingVideoId && player && player.cueVideoById) {
+    player.cueVideoById(pendingVideoId);
+    pendingVideoId = null;
+  }
+
+  const videoControls = document.getElementById('video-controls');
+  if (videoControls) videoControls.classList.remove('d-none');
 }
 
 function onPlayerStateChange(event) {
@@ -131,7 +138,27 @@ function onPlayerStateChange(event) {
 
 function onPlayerError(event) {
     console.error('YouTube player error:', event.data);
-    showNotification('Error loading YouTube video', 'error');
+    
+    const errorMessages = {
+        2: 'The request contains an invalid parameter value',
+        5: 'The requested content cannot be played in an HTML5 player',
+        100: 'The video requested was not found',
+        101: 'The owner of the requested video does not allow it to be played in embedded players',
+        150: 'The owner of the requested video does not allow it to be played in embedded players'
+    };
+    
+    const errorMessage = errorMessages[event.data] || 'Error loading YouTube video';
+    showNotification(errorMessage, 'error');
+    
+    const placeholder = document.getElementById('player-placeholder');
+    if (placeholder) {
+        placeholder.classList.remove('d-none');
+    }
+    
+    const videoControls = document.getElementById('video-controls');
+    if (videoControls) {
+        videoControls.classList.add('d-none');
+    }
 }
 
 function connectWebSocket() {
@@ -410,9 +437,16 @@ async function loadVideoToPlayer(url) {
     const videoContainer = document.getElementById('video-container');
     if (!videoContainer) return;
     
-    cleanupYouTubePlayer();
+    videoContainer.innerHTML = `
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="ms-2 text-light">Loading video...</span>
+        </div>
+    `;
     
-    videoContainer.innerHTML = '';
+    cleanupYouTubePlayer();
     
     videoType = videoInfo.type;
     
@@ -448,7 +482,13 @@ async function loadVideoToPlayer(url) {
         }
     } catch (error) {
         console.error('Error loading video:', error);
-        showNotification('Error loading video', 'error');
+        showNotification('Error loading video: ' + error.message, 'error');
+        
+        videoContainer.innerHTML = '';
+        const placeholder = document.getElementById('player-placeholder');
+        if (placeholder) {
+            placeholder.classList.remove('d-none');
+        }
     }
 }
 
@@ -697,10 +737,13 @@ function userLeft(username) {
 }
 
 function isValidVideoUrl(url) {
+    if (!url) return false;
+    
     const patterns = [
         /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/,
         /^(https?:\/\/)?(www\.)?vimeo\.com\/.+/,
-        /^(https?:\/\/).+\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?.*)?$/i
+        /^(https?:\/\/).+\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?.*)?$/i,
+        /^https?:\/\/.*\.(googlevideo\.com|ytimg\.com)\/.+/ 
     ];
     
     return patterns.some(pattern => pattern.test(url));
@@ -747,35 +790,27 @@ function showNotification(message, type = 'info') {
 }
 
 function extractVideoId(url) {
-    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const youtubeMatch = url.match(youtubeRegex);
-    if (youtubeMatch) return { type: 'youtube', id: youtubeMatch[1] };
+    const youtubePatterns = [
+        /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/,
+        /youtube\.com\/embed\/([^"&?\/\s]{11})/,
+        /youtube\.com\/watch\?v=([^"&?\/\s]{11})/,
+        /youtube\.com\/v\/([^"&?\/\s]{11})/
+    ];
     
-    const vimeoRegex = /(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/;
-    const vimeoMatch = url.match(vimeoRegex);
-    if (vimeoMatch) return { type: 'vimeo', id: vimeoMatch[1] };
-    
-    if (url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(?:\?.*)?$/i)) {
-        return { type: 'direct', id: url };
+    for (const pattern of youtubePatterns) {
+        const match = url.match(pattern);
+        if (match) return { type: 'youtube', id: match[1] };
     }
+    
+    // const vimeoRegex = /(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/;
+    // const vimeoMatch = url.match(vimeoRegex);
+    // if (vimeoMatch) return { type: 'vimeo', id: vimeoMatch[1] };
+    
+    // if (url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(?:\?.*)?$/i)) {
+    //     return { type: 'direct', id: url };
+    // }
     
     return null;
-}
-
-function toggleFullscreen() {
-    const videoContainer = document.getElementById('video-container');
-    
-    if (!document.fullscreenElement) {
-        if (videoContainer.requestFullscreen) {
-            videoContainer.requestFullscreen().catch(err => {
-                console.error('Error attempting to enable fullscreen:', err);
-            });
-        }
-    } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
-    }
 }
 
 document.addEventListener('fullscreenchange', handleFullscreenChange);

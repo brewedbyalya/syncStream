@@ -631,7 +631,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
         typing_users = cache.get(cache_key, {})
         if self.user.id in typing_users:
             del typing_users[self.user.id]
-            cache.set(cache_key, typing_users, timeout=10)
+        cache.set(cache_key, typing_users, timeout=10)
 
     @database_sync_to_async
     def get_typing_users(self):
