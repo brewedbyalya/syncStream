@@ -383,6 +383,22 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'removed_by': event['removed_by']
         }))
 
+    async def user_kicked(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_kicked',
+            'user_id': event['user_id'],
+            'username': event['username'],
+            'kicked_by': event['kicked_by']
+         }))
+
+    async def you_were_kicked(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'you_were_kicked',
+            'room_id': event['room_id'],
+            'room_name': event['room_name'],
+            'kicked_by': event['kicked_by']
+        }))
+
     async def user_muted(self, event):
         await self.send(text_data=json.dumps({
             'type': 'user_muted',

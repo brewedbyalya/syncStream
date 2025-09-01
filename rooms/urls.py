@@ -19,4 +19,5 @@ urlpatterns = [
     path('<uuid:room_id>/banned-words/add/', views.add_banned_word, name='add_banned_word'),
     path('<uuid:room_id>/banned-words/remove/', views.remove_banned_word, name='remove_banned_word'),
     path('<uuid:room_id>/banned-words/', views.get_banned_words, name='get_banned_words'),
+    path('<uuid:room_id>/users/<uuid:user_id>/kick/', views.kick_user, name='kick_user'),
 ]

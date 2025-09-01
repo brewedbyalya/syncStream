@@ -261,6 +261,14 @@ function handleWebSocketMessage(data) {
             
         case 'banned_word_removed':
             handleBannedWordRemoved(data);
+
+        case 'user_kicked':
+            handleUserKicked(data);
+            break;
+            
+        case 'you_were_kicked':
+            handleYouWereKicked(data);
+            break;
             
         default:
             console.log('Unknown message type:', data.type);
@@ -329,6 +337,30 @@ function handleTypingIndicator(data) {
     }
 }
 
+function handleUserKicked(data) {
+    console.log('User kicked:', data);
+    showNotification(`${data.username} was kicked by ${data.kicked_by}`, 'warning');
+    
+    const participantElement = document.querySelector(`.participant-card[data-user-id="${data.user_id}"]`);
+    if (participantElement) {
+        participantElement.remove();
+    }
+    
+    if (onlineCount) {
+        const count = parseInt(onlineCount.textContent) - 1;
+        onlineCount.textContent = count + ' online';
+    }
+}
+
+function handleYouWereKicked(data) {
+    console.log('You were kicked:', data);
+    showNotification(`You were kicked from "${data.room_name}" by ${data.kicked_by}`, 'danger');
+    
+    setTimeout(() => {
+        showNotification('Redirecting to home page...', 'info');
+        window.location.href = '/';
+    }, 3000);
+}
 
 function showTypingIndicator(username) {
     const indicator = document.getElementById('typing-indicator');
@@ -892,6 +924,25 @@ function userLeft(username) {
     showNotification(`${username} left the room`, 'warning');
 }
 
+function updateOnlineCount(change) {
+    const onlineCountElement = document.getElementById('online-count');
+    const onlineCountBadge = document.getElementById('online-count-badge');
+    
+    if (onlineCountElement) {
+        const currentText = onlineCountElement.textContent;
+        const currentCount = parseInt(currentText) || 0;
+        const newCount = Math.max(0, currentCount + change);
+        onlineCountElement.textContent = newCount + ' online';
+    }
+    
+    if (onlineCountBadge) {
+        const currentText = onlineCountBadge.textContent;
+        const currentCount = parseInt(currentText) || 0;
+        const newCount = Math.max(0, currentCount + change);
+        onlineCountBadge.textContent = newCount + ' online';
+    }
+}
+
 function isValidVideoUrl(url) {
     if (!url) return false;
 
@@ -993,6 +1044,33 @@ function handleFullscreenChange() {
             fullscreenBtn.title = 'Fullscreen';
         }
     }
+}
+
+function kickUser(userId, userName) {
+    if (!confirm(`Kick ${userName} from the room? They can rejoin if they have the link.`)) return;
+    
+    console.log('Kicking user:', userId, userName);
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch(`/rooms/${roomId}/users/${userId}/kick/`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Kicked ${userName} from the room`, 'success');
+        } else {
+            showNotification('Failed to kick user: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error kicking user:', error);
+        showNotification('Error kicking user', 'error');
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function() {

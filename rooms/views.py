@@ -489,3 +489,47 @@ def get_banned_words(request, room_id):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@require_POST
+@login_required
+def kick_user(request, room_id, user_id):
+    try:
+        room = get_object_or_404(Room, id=room_id)
+        target_user = get_object_or_404(User, id=user_id)
+        participant = get_object_or_404(Participant, room=room, user=target_user)
+        
+        if request.user != room.creator:
+            return JsonResponse({'error': 'Only room creators can kick users'}, status=403)
+        
+        if target_user == request.user:
+            return JsonResponse({'error': 'Cannot kick yourself'}, status=400)
+        
+        participant.is_online = False
+        participant.save()
+        
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f'room_{room_id}',
+            {
+                'type': 'user_kicked',
+                'user_id': str(target_user.id),
+                'username': target_user.username,
+                'kicked_by': request.user.username
+            }
+        )
+        
+        async_to_sync(channel_layer.group_send)(
+            f"user_{target_user.id}",
+            {
+                'type': 'you_were_kicked',
+                'room_id': str(room_id),
+                'room_name': room.name,
+                'kicked_by': request.user.username
+            }
+        )
+        
+        return JsonResponse({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Error kicking user: {str(e)}")
+        return JsonResponse({'error': 'Internal server error'}, status=500)
