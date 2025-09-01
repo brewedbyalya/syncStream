@@ -23,6 +23,7 @@ let timeUpdateInterval;
 let ytReady = false;
 let pendingVideoId = null;
 
+
 window.onYouTubeIframeAPIError = function(error) {
     console.error('YouTube API Error:', error);
     showNotification('YouTube player failed to load', 'error');
@@ -324,28 +325,34 @@ function sendChatMessage() {
     }
 }
 
+
 async function loadYouTubeVideo(videoId) {
-    const videoContainer = document.getElementById('video-container');
-    if (!videoContainer) return;
-    
-    videoContainer.innerHTML = '';
-    
-    const youtubeDiv = document.createElement('div');
-    youtubeDiv.id = 'youtube-player';
-    videoContainer.appendChild(youtubeDiv);
-    
-    try {
-        await initializeYouTubePlayer();
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        if (window.player && window.player.cueVideoById) {
-            window.player.cueVideoById(videoId);
-        }
-    } catch (error) {
-        console.error('Error loading YouTube video:', error);
-        showNotification('Failed to load YouTube video', 'error');
+  const container = document.getElementById('video-container');
+  if (!container) return;
+
+  container.innerHTML = '';
+  const youtubeDiv = document.createElement('div');
+  youtubeDiv.id = 'youtube-player';
+  container.appendChild(youtubeDiv);
+
+  try {
+    await initializeYouTubePlayer();
+
+    if (!ytReady) {
+      pendingVideoId = videoId;
+      return;
     }
+
+    if (player && player.cueVideoById) {
+      player.cueVideoById({ videoId, startSeconds: 0 });
+    } else {
+      console.warn('Player not ready to cue; deferring.');
+      pendingVideoId = videoId;
+    }
+  } catch (err) {
+    console.error('Error loading YouTube video:', err);
+    showNotification('Failed to load YouTube video', 'error');
+  }
 }
 
 function loadVimeoVideo(videoId) {
@@ -738,15 +745,9 @@ function userLeft(username) {
 
 function isValidVideoUrl(url) {
     if (!url) return false;
-    
-    const patterns = [
-        /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/,
-        /^(https?:\/\/)?(www\.)?vimeo\.com\/.+/,
-        /^(https?:\/\/).+\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?.*)?$/i,
-        /^https?:\/\/.*\.(googlevideo\.com|ytimg\.com)\/.+/ 
-    ];
-    
-    return patterns.some(pattern => pattern.test(url));
+
+    if (/^[A-Za-z0-9_-]{11}$/.test(url.trim())) return true;
+    return /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/.test(url);
 }
 
 function showNotification(message, type = 'info') {
@@ -789,29 +790,44 @@ function showNotification(message, type = 'info') {
 
 }
 
-function extractVideoId(url) {
-    const youtubePatterns = [
-        /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/,
-        /youtube\.com\/embed\/([^"&?\/\s]{11})/,
-        /youtube\.com\/watch\?v=([^"&?\/\s]{11})/,
-        /youtube\.com\/v\/([^"&?\/\s]{11})/
-    ];
-    
-    for (const pattern of youtubePatterns) {
-        const match = url.match(pattern);
-        if (match) return { type: 'youtube', id: match[1] };
+function extractVideoId(input) {
+  if (!input) return null;
+
+  const raw = input.trim();
+  const rawMatch = raw.match(/^[A-Za-z0-9_-]{11}$/);
+  if (rawMatch) return { type: 'youtube', id: rawMatch[0] };
+
+  try {
+    const u = new URL(raw);
+    const host = u.hostname.replace(/^www\./, '');
+
+    if (host === 'youtu.be') {
+      const id = u.pathname.split('/')[1] || '';
+      if (/^[A-Za-z0-9_-]{11}$/.test(id)) return { type: 'youtube', id };
     }
-    
-    // const vimeoRegex = /(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/;
-    // const vimeoMatch = url.match(vimeoRegex);
-    // if (vimeoMatch) return { type: 'vimeo', id: vimeoMatch[1] };
-    
-    // if (url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(?:\?.*)?$/i)) {
-    //     return { type: 'direct', id: url };
-    // }
-    
-    return null;
+
+    if (host.endsWith('youtube.com')) {
+      const v = u.searchParams.get('v');
+      if (v && /^[A-Za-z0-9_-]{11}$/.test(v)) return { type: 'youtube', id: v };
+
+      const m1 = u.pathname.match(/^\/embed\/([A-Za-z0-9_-]{11})/);
+      if (m1) return { type: 'youtube', id: m1[1] };
+
+      const m2 = u.pathname.match(/^\/shorts\/([A-Za-z0-9_-]{11})/);
+      if (m2) return { type: 'youtube', id: m2[1] };
+
+      const vi = u.searchParams.get('vi');
+      if (vi && /^[A-Za-z0-9_-]{11}$/.test(vi)) return { type: 'youtube', id: vi };
+    }
+  } catch (e) {
+  }
+
+  const tail = input.match(/(?:v=|\/)([A-Za-z0-9_-]{11})(?:[?&].*)?$/);
+  if (tail) return { type: 'youtube', id: tail[1] };
+
+  return null;
 }
+
 
 document.addEventListener('fullscreenchange', handleFullscreenChange);
 document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -889,3 +905,4 @@ window.addEventListener('beforeunload', function() {
         clearInterval(timeUpdateInterval);
     }
 });
+
