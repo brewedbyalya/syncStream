@@ -1,22 +1,37 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block profile_css %}
+<link href="{% static 'css/profile.css' %}" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
 <div class="profile-container">
     <div class="row">
         <div class="col-md-4">
-            <div class="card profile-card">
+            <div class="card profile-card card-gradient">
                 <div class="card-header profile-header">
-                    <h4><i class="fas fa-user profile-header-icon"></i>User Profile</h4>
+                    <h4><i class="fas fa-user-circle profile-header-icon"></i> User Profile</h4>
                 </div>
                 <div class="card-body text-center profile-body">
                     <div class="profile-avatar">
                         <div class="avatar-container">
-                            <i class="fas fa-user-circle"></i>
-                            <div class="avatar-status"></div>
+                            {% if user.profile_picture %}
+                                <img src="{{ user.profile_picture.url }}" alt="{{ user.username }}" class="profile-picture">
+                            {% else %}
+                                <i class="fas fa-user-circle fa-4x"></i>
+                            {% endif %}
+                            <div class="avatar-status {% if user.is_online %}status-online{% else %}status-offline{% endif %}"></div>
                         </div>
                     </div>
                     <h5 class="profile-username">{{ user.username }}</h5>
                     <p class="profile-email">{{ user.email }}</p>
+                    
+                    {% if user.bio %}
+                    <div class="profile-bio">
+                        <p>{{ user.bio }}</p>
+                    </div>
+                    {% endif %}
                     
                     <div class="profile-stats">
                         <div class="stat-item">
@@ -38,38 +53,90 @@
                                 <span class="stat-value">{{ user.last_login|date:"M d, Y" }}</span>
                             </div>
                         </div>
+                        
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div class="stat-content">
+                                <span class="stat-label">Last activity</span>
+                                <span class="stat-value">{{ user.last_activity|date:"M d, Y H:i" }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-circle"></i>
+                            </div>
+                            <div class="stat-content">
+                                <span class="stat-label">Status</span>
+                                <span class="stat-value {% if user.is_online %}text-success{% else %}text-muted{% endif %}">
+                                    {% if user.is_online %}Online{% else %}Offline{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="profile-actions mt-3">
+                        <a href="{% url 'profile_edit' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-edit me-1"></i> Edit Profile
+                        </a>
                     </div>
                 </div>
             </div>
         </div>
         
         <div class="col-md-8">
-            <div class="card rooms-card">
+            <div class="card rooms-card card-gradient">
                 <div class="card-header rooms-header">
-                    <h4><i class="fas fa-door-open rooms-header-icon"></i>My Rooms</h4>
+                    <h4><i class="fas fa-crown me-2"></i> Rooms I Created ({{ user.created_rooms.count }})</h4>
                 </div>
                 <div class="card-body rooms-body">
-                    <a href="{% url 'rooms:create_room' %}" class="btn create-room-btn">
-                        <i class="fas fa-plus-circle"></i> Create New Room
+                    <a href="{% url 'rooms:create_room' %}" class="btn create-room-btn mb-3">
+                        <i class="fas fa-plus-circle me-1"></i> Create New Room
                     </a>
                     
                     {% if user.created_rooms.all %}
                     <div class="rooms-list">
                         {% for room in user.created_rooms.all %}
-                        <div class="room-item">
+                        <div class="room-item {% if not room.is_active %}room-archived{% endif %}">
                             <div class="room-content">
                                 <div class="room-header">
-                                    <h5 class="room-title">{{ room.name }}</h5>
+                                    <h5 class="room-title">
+                                        {{ room.name }}
+                                        {% if not room.is_active %}
+                                        <span class="badge bg-secondary ms-2">Archived</span>
+                                        {% endif %}
+                                    </h5>
                                     <span class="room-date">{{ room.created_at|date:"M d, Y" }}</span>
                                 </div>
-                                <p class="room-description">{{ room.description|truncatewords:10 }}</p>
-                                <div class="room-footer">
+                                <p class="room-description">{{ room.description|truncatewords:15 }}</p>
+                                <div class="room-meta">
                                     <span class="room-participants">
-                                        <i class="fas fa-users"></i> {{ room.participants.count }} participants
+                                        <i class="fas fa-users me-1"></i> {{ room.participants.count }} participants
                                     </span>
-                                    <a href="{% url 'rooms:room_detail' room.id %}" class="room-link">
-                                        View Room <i class="fas fa-arrow-right"></i>
+                                    <span class="room-privacy ms-2">
+                                        <i class="fas {% if room.is_private %}fa-lock{% else %}fa-globe{% endif %} me-1"></i>
+                                        {% if room.is_private %}Private{% else %}Public{% endif %}
+                                    </span>
+                                </div>
+                                
+                                <div class="room-actions mt-2">
+                                    {% if room.is_active %}
+                                    <a href="{% url 'rooms:room_detail' room.id %}" class="btn btn-success btn-sm">
+                                        <i class="fas fa-enter me-1"></i> Join
                                     </a>
+                                    <a href="{% url 'rooms:edit_room' room.id %}" class="btn btn-outline-primary btn-sm">
+                                        <i class="fas fa-edit me-1"></i> Edit
+                                    </a>
+                                    {% else %}
+                                    <form action="{% url 'rooms:restore_room' room.id %}" method="post" class="d-inline">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-success btn-sm">
+                                            <i class="fas fa-undo me-1"></i> Restore
+                                        </button>
+                                    </form>
+                                    {% endif %}
                                 </div>
                             </div>
                         </div>
@@ -77,18 +144,122 @@
                     </div>
                     {% else %}
                     <div class="empty-state">
-                        <i class="fas fa-door-closed"></i>
-                        <h5>No Rooms Yet</h5>
+                        <i class="fas fa-door-open fa-3x mb-3"></i>
+                        <h5>No Rooms Created Yet</h5>
                         <p class="text-muted">You haven't created any rooms yet.</p>
-                        <a href="{% url 'rooms:create_room' %}" class="btn create-room-btn">
-                            <i class="fas fa-plus-circle"></i> Create Your First Room
+                        <a href="{% url 'rooms:create_room' %}" class="btn btn-primary mt-2">
+                            <i class="fas fa-plus-circle me-1"></i> Create Your First Room
                         </a>
                     </div>
                     {% endif %}
                 </div>
             </div>
+            
+            <div class="card rooms-card card-gradient mt-4">
+                <div class="card-header">
+                    <h4><i class="fas fa-users me-2"></i> Rooms I'm Participating In ({{ participant_rooms.count }})</h4>
+                </div>
+                <div class="card-body">
+                    {% if participant_rooms %}
+                    <div class="rooms-list">
+                        {% for room in participant_rooms %}
+                        <a href="{% url 'rooms:room_detail' room.id %}" class="room-item room-item-participant">
+                            <div class="room-content">
+                                <div class="room-header">
+                                    <h5 class="room-title">{{ room.name }}</h5>
+                                    <small class="room-creator">By {{ room.creator.username }}</small>
+                                </div>
+                                <p class="room-description">{{ room.description|truncatewords:10 }}</p>
+                                <div class="room-meta">
+                                    <span class="room-participants">
+                                        <i class="fas fa-users me-1"></i> {{ room.participants.count }} participants
+                                    </span>
+                                    <span class="room-privacy ms-2">
+                                        <i class="fas {% if room.is_private %}fa-lock{% else %}fa-globe{% endif %} me-1"></i>
+                                        {% if room.is_private %}Private{% else %}Public{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="empty-state">
+                        <i class="fas fa-user-friends fa-3x mb-3"></i>
+                        <h5>Not in Any Rooms</h5>
+                        <p class="text-muted">You're not participating in any rooms yet.</p>
+                        <a href="{% url 'home' %}" class="btn btn-primary mt-2">
+                            <i class="fas fa-search me-1"></i> Browse Public Rooms
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card stats-card card-gradient mt-4">
+                <div class="card-header">
+                    <h4><i class="fas fa-chart-bar me-2"></i> User Statistics</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="stat-number">{{ user.created_rooms.count }}</div>
+                            <div class="stat-label">Rooms Created</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-number">{{ participant_rooms.count }}</div>
+                            <div class="stat-label">Rooms Joined</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-number">{{ total_messages }}</div>
+                            <div class="stat-label">Messages Sent</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function updateOnlineStatus() {
+        fetch('/api/user/online-status/', {
+            method: 'GET',
+            credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.is_online !== undefined) {
+                updateStatusUI(data.is_online);
+            }
+        })
+        .catch(error => console.error('Error checking online status:', error));
+    }
+    
+    function updateStatusUI(isOnline) {
+        const avatarStatus = document.querySelector('.avatar-status');
+        if (avatarStatus) {
+            avatarStatus.className = 'avatar-status ' + (isOnline ? 'status-online' : 'status-offline');
+        }
+        
+        const statusBadge = document.querySelector('.online-status-badge');
+        if (statusBadge) {
+            statusBadge.className = 'online-status-badge ' + (isOnline ? 'online' : 'offline');
+            statusBadge.innerHTML = `<i class="fas fa-circle me-1"></i>${isOnline ? 'Online' : 'Offline'}`;
+        }
+        
+        const statValue = document.querySelector('.stat-content .stat-value');
+        if (statValue) {
+            statValue.textContent = isOnline ? 'Online' : 'Offline';
+            statValue.className = 'stat-value ' + (isOnline ? 'text-success' : 'text-muted');
+        }
+    }
+    
+    setInterval(updateOnlineStatus, 30000);
+    
+    updateOnlineStatus();
+});
+</script>
 
 {% endblock %}

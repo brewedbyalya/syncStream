@@ -261,6 +261,26 @@ function handleWebSocketMessage(data) {
             
         case 'banned_word_removed':
             handleBannedWordRemoved(data);
+
+        case 'user_kicked':
+            handleUserKicked(data);
+            break;
+            
+        case 'you_were_kicked':
+            handleYouWereKicked(data);
+            break;
+
+        case 'user_banned':
+            handleUserBanned(data);
+            break;
+
+        case 'you_were_banned':
+            handleYouWereBanned(data);
+            break;
+
+        case 'user_unbanned':
+            handleUserUnbanned(data);
+            break;
             
         default:
             console.log('Unknown message type:', data.type);
@@ -317,6 +337,26 @@ function handleBannedWordRemoved(data) {
     }
 }
 
+function handleUserBanned(data) {
+    showNotification(`${data.username} was permanently banned by ${data.banned_by}`, 'warning');
+    const participantElement = document.querySelector(`.participant-card[data-user-id="${data.user_id}"]`);
+    if (participantElement) {
+        participantElement.remove();
+    }
+    updateOnlineCount(-1);
+}
+
+function handleYouWereBanned(data) {
+    showNotification(`You were permanently banned from "${data.room_name}" by ${data.banned_by}`, 'danger');
+    setTimeout(() => {
+        window.location.href = '/';
+    }, 3000);
+}
+
+function handleUserUnbanned(data) {
+    showNotification(`${data.username} was unbanned by ${data.unbanned_by}`, 'success');
+}
+
 function handleTypingIndicator(data) {
     console.log('Typing indicator received:', data);
     
@@ -329,6 +369,30 @@ function handleTypingIndicator(data) {
     }
 }
 
+function handleUserKicked(data) {
+    console.log('User kicked:', data);
+    showNotification(`${data.username} was kicked by ${data.kicked_by}`, 'warning');
+    
+    const participantElement = document.querySelector(`.participant-card[data-user-id="${data.user_id}"]`);
+    if (participantElement) {
+        participantElement.remove();
+    }
+    
+    if (onlineCount) {
+        const count = parseInt(onlineCount.textContent) - 1;
+        onlineCount.textContent = count + ' online';
+    }
+}
+
+function handleYouWereKicked(data) {
+    console.log('You were kicked:', data);
+    showNotification(`You were kicked from "${data.room_name}" by ${data.kicked_by}`, 'danger');
+    
+    setTimeout(() => {
+        showNotification('Redirecting to home page...', 'info');
+        window.location.href = '/';
+    }, 3000);
+}
 
 function showTypingIndicator(username) {
     const indicator = document.getElementById('typing-indicator');
@@ -415,6 +479,9 @@ function handleDisconnection(e) {
     } else if (e.code === 4002) {
         showNotification('Error connecting to room', 'error');
         updateChatIndicator('error', 'Connection Error');
+    }   else if (e.code === 4005) {  
+        showNotification('You are banned from this room', 'error');
+        updateChatIndicator('banned', 'Banned');
     } else if (reconnectAttempts < maxReconnectAttempts) {
         updateChatIndicator('connecting', 'Reconnecting...');
         setTimeout(() => {
@@ -892,6 +959,75 @@ function userLeft(username) {
     showNotification(`${username} left the room`, 'warning');
 }
 
+function banUser(userId, userName) {
+    if (!confirm(`Permanently ban ${userName} from this room? They will not be able to rejoin even with the invite link.`)) return;
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch(`/rooms/${roomId}/users/${userId}/ban/`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Permanently banned ${userName} from the room`, 'success');
+        } else {
+            showNotification('Failed to ban user: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error banning user:', error);
+        showNotification('Error banning user', 'error');
+    });
+}
+
+function unbanUser(userId, userName) {
+    if (!confirm(`Unban ${userName}? They will be able to rejoin the room.`)) return;
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch(`/rooms/${roomId}/users/${userId}/unban/`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Unbanned ${userName}`, 'success');
+        } else {
+            showNotification('Failed to unban user: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error unbanning user:', error);
+        showNotification('Error unbanning user', 'error');
+    });
+}
+
+function updateOnlineCount(change) {
+    const onlineCountElement = document.getElementById('online-count');
+    const onlineCountBadge = document.getElementById('online-count-badge');
+    
+    if (onlineCountElement) {
+        const currentText = onlineCountElement.textContent;
+        const currentCount = parseInt(currentText) || 0;
+        const newCount = Math.max(0, currentCount + change);
+        onlineCountElement.textContent = newCount + ' online';
+    }
+    
+    if (onlineCountBadge) {
+        const currentText = onlineCountBadge.textContent;
+        const currentCount = parseInt(currentText) || 0;
+        const newCount = Math.max(0, currentCount + change);
+        onlineCountBadge.textContent = newCount + ' online';
+    }
+}
+
 function isValidVideoUrl(url) {
     if (!url) return false;
 
@@ -995,6 +1131,41 @@ function handleFullscreenChange() {
     }
 }
 
+function kickUser(userId, userName) {
+    if (!confirm(`Kick ${userName} from the room? They can rejoin if they have the link.`)) return;
+    
+    console.log('Kicking user:', userId, userName);
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+    
+    fetch(`/rooms/${roomId}/users/${userId}/kick/`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(`Kicked ${userName} from the room`, 'success');
+            const participantElement = document.querySelector(`.participant-card[data-user-id="${userId}"]`);
+            if (participantElement) {
+                participantElement.remove();
+            }
+            if (onlineCount) {
+                const count = parseInt(onlineCount.textContent) - 1;
+                onlineCount.textContent = count + ' online';
+            }
+        } else {
+            showNotification('Failed to kick user: ' + data.error, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error kicking user:', error);
+        showNotification('Error kicking user', 'error');
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     chatMessages = document.getElementById('chat-messages');
     chatInput = document.getElementById('chat-input');
@@ -1084,4 +1255,3 @@ window.addEventListener('beforeunload', function() {
         clearInterval(timeUpdateInterval);
     }
 });
-
