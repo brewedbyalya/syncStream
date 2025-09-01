@@ -77,6 +77,9 @@ function createYouTubePlayer() {
             window.player.destroy();
         }
         
+        // const currentOrigin = window.location.origin;
+        const currentOrigin = 'http://127.0.0.1:8000'
+        
         window.player = new YT.Player('youtube-player', {
             height: '100%',
             width: '100%',
@@ -86,7 +89,7 @@ function createYouTubePlayer() {
                 'modestbranding': 1,
                 'rel': 0,
                 'enablejsapi': 1,
-                'origin': window.location.origin
+                'origin': currentOrigin
             },
             events: {
                 'onReady': onPlayerReady,
@@ -99,7 +102,6 @@ function createYouTubePlayer() {
         showNotification('Error creating YouTube player', 'error');
     }
 }
-
 function onPlayerReady(event) {
     console.log('YouTube player ready');
     const videoControls = document.getElementById('video-controls');
@@ -131,7 +133,27 @@ function onPlayerStateChange(event) {
 
 function onPlayerError(event) {
     console.error('YouTube player error:', event.data);
-    showNotification('Error loading YouTube video', 'error');
+    
+    const errorMessages = {
+        2: 'The request contains an invalid parameter value',
+        5: 'The requested content cannot be played in an HTML5 player',
+        100: 'The video requested was not found',
+        101: 'The owner of the requested video does not allow it to be played in embedded players',
+        150: 'The owner of the requested video does not allow it to be played in embedded players'
+    };
+    
+    const errorMessage = errorMessages[event.data] || 'Error loading YouTube video';
+    showNotification(errorMessage, 'error');
+    
+    const placeholder = document.getElementById('player-placeholder');
+    if (placeholder) {
+        placeholder.classList.remove('d-none');
+    }
+    
+    const videoControls = document.getElementById('video-controls');
+    if (videoControls) {
+        videoControls.classList.add('d-none');
+    }
 }
 
 function connectWebSocket() {
@@ -410,9 +432,16 @@ async function loadVideoToPlayer(url) {
     const videoContainer = document.getElementById('video-container');
     if (!videoContainer) return;
     
-    cleanupYouTubePlayer();
+    videoContainer.innerHTML = `
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <span class="ms-2 text-light">Loading video...</span>
+        </div>
+    `;
     
-    videoContainer.innerHTML = '';
+    cleanupYouTubePlayer();
     
     videoType = videoInfo.type;
     
@@ -448,12 +477,19 @@ async function loadVideoToPlayer(url) {
         }
     } catch (error) {
         console.error('Error loading video:', error);
-        showNotification('Error loading video', 'error');
+        showNotification('Error loading video: ' + error.message, 'error');
+        
+        videoContainer.innerHTML = '';
+        const placeholder = document.getElementById('player-placeholder');
+        if (placeholder) {
+            placeholder.classList.remove('d-none');
+        }
     }
 }
 
 function loadVideo() {
     const url = videoUrlInput.value.trim();
+    // const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQS'
     if (url && isValidVideoUrl(url)) {
         const videoInfo = extractVideoId(url);
         if (videoInfo) {
@@ -697,10 +733,13 @@ function userLeft(username) {
 }
 
 function isValidVideoUrl(url) {
+    if (!url) return false;
+    
     const patterns = [
         /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+/,
-        /^(https?:\/\/)?(www\.)?vimeo\.com\/.+/,
-        /^(https?:\/\/).+\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?.*)?$/i
+        // /^(https?:\/\/)?(www\.)?vimeo\.com\/.+/,
+        // /^(https?:\/\/).+\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(\?.*)?$/i,
+        // /^https?:\/\/.*\.(googlevideo\.com|ytimg\.com)\/.+/ 
     ];
     
     return patterns.some(pattern => pattern.test(url));
@@ -747,35 +786,27 @@ function showNotification(message, type = 'info') {
 }
 
 function extractVideoId(url) {
-    const youtubeRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const youtubeMatch = url.match(youtubeRegex);
-    if (youtubeMatch) return { type: 'youtube', id: youtubeMatch[1] };
+    const youtubePatterns = [
+        /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/,
+        // /youtube\.com\/embed\/([^"&?\/\s]{11})/,
+        // /youtube\.com\/watch\?v=([^"&?\/\s]{11})/,
+        // /youtube\.com\/v\/([^"&?\/\s]{11})/
+    ];
     
-    const vimeoRegex = /(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/;
-    const vimeoMatch = url.match(vimeoRegex);
-    if (vimeoMatch) return { type: 'vimeo', id: vimeoMatch[1] };
-    
-    if (url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(?:\?.*)?$/i)) {
-        return { type: 'direct', id: url };
+    for (const pattern of youtubePatterns) {
+        const match = url.match(pattern);
+        if (match) return { type: 'youtube', id: match[1] };
     }
+    
+    // const vimeoRegex = /(?:vimeo\.com\/|player\.vimeo\.com\/video\/)([0-9]+)/;
+    // const vimeoMatch = url.match(vimeoRegex);
+    // if (vimeoMatch) return { type: 'vimeo', id: vimeoMatch[1] };
+    
+    // if (url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)(?:\?.*)?$/i)) {
+    //     return { type: 'direct', id: url };
+    // }
     
     return null;
-}
-
-function toggleFullscreen() {
-    const videoContainer = document.getElementById('video-container');
-    
-    if (!document.fullscreenElement) {
-        if (videoContainer.requestFullscreen) {
-            videoContainer.requestFullscreen().catch(err => {
-                console.error('Error attempting to enable fullscreen:', err);
-            });
-        }
-    } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
-    }
 }
 
 document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -854,3 +885,4 @@ window.addEventListener('beforeunload', function() {
         clearInterval(timeUpdateInterval);
     }
 });
+
