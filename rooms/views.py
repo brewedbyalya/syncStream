@@ -10,6 +10,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 def home(request):
     rooms = Room.objects.filter(is_active=True, is_private=False)
@@ -349,6 +352,8 @@ def mute_user(request, room_id, user_id):
         
         participant.mute(duration, request.user)
     
+        from channels.layers import get_channel_layer
+        from asgiref.sync import async_to_sync
         
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
