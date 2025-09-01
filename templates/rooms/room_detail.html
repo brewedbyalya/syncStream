@@ -625,6 +625,13 @@ function handleWebSocketMessage(data) {
         case 'user_joined':
             userJoined(data.username);
             break;
+
+        case 'banned_word_added':
+            handleBannedWordAdded(data);
+            break;
+            
+        case 'banned_word_removed':
+            handleBannedWordRemoved(data);
             
         case 'user_left':
             userLeft(data.username);

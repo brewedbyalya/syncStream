@@ -2260,9 +2260,6 @@ form.d-inline {
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
 
-.room-option-card-restore {
-    border-top: 4px solid var(--golden-sand);
-}
 
 .room-option-card-delete {
     border-top: 4px solid var(--terracotta);
@@ -2273,9 +2270,6 @@ form.d-inline {
     margin-bottom: 1rem;
 }
 
-.room-option-card-restore .room-option-icon {
-    color: var(--golden-sand);
-}
 
 .room-option-card-delete .room-option-icon {
     color: var(--terracotta);

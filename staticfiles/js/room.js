@@ -238,16 +238,84 @@ function handleWebSocketMessage(data) {
         case 'webrtc_signal':
             handleWebRTCSignal(data);
             break;
+
+        case 'message_deleted':
+            handleMessageDeleted(data);
+            break;
             
         case 'pong':
             handlePingPong(data);
             break;
+
+        case 'user_muted':
+            handleUserMuted(data);
+            break;
+            
+        case 'user_unmuted':
+            handleUserUnmuted(data);
+            break;
+
+        case 'banned_word_added':
+            handleBannedWordAdded(data);
+            break;
+            
+        case 'banned_word_removed':
+            handleBannedWordRemoved(data);
             
         default:
             console.log('Unknown message type:', data.type);
     }
 }
 
+
+function handleMessageDeleted(data) {
+    console.log('Handling message deletion via WebSocket:', data);
+    
+    const messageElement = document.querySelector(`[data-message-id="${data.message_id}"]`);
+    if (messageElement) {
+        messageElement.remove();
+        updateMessageCount();
+        
+        if (data.deleted_by !== username) {
+            const truncatedContent = data.message_content.length > 100 ? 
+                data.message_content.substring(0, 100) + '...' : data.message_content;
+            showNotification(`Message "${truncatedContent}" by ${data.message_author} was deleted by ${data.deleted_by}`, 'info');
+        }
+    }
+}
+
+
+function handleUserMuted(data) {
+    showNotification(`${data.username} was muted by ${data.muted_by} for ${data.duration} minutes`, 'warning');
+    updateParticipantMuteStatus(data.user_id, true);
+}
+
+function handleUserUnmuted(data) {
+    showNotification(`${data.username} was unmuted by ${data.unmuted_by}`, 'success');
+    updateParticipantMuteStatus(data.user_id, false);
+}
+
+function handleBannedWordAdded(data) {
+    console.log('Banned word added:', data);
+    
+    if (isRoomCreator) {
+        addBannedWordToUI(data.word);
+        if (data.added_by !== username) {
+            showNotification(`"${data.word}" added to banned words by ${data.added_by}`, 'success');
+        }
+    }
+}
+
+function handleBannedWordRemoved(data) {
+    console.log('Banned word removed:', data);
+    
+    if (isRoomCreator) {
+        removeBannedWordFromUI(data.word);
+        if (data.removed_by !== username) {
+            showNotification(`"${data.word}" removed from banned words by ${data.removed_by}`, 'info');
+        }
+    }
+}
 
 function handleTypingIndicator(data) {
     console.log('Typing indicator received:', data);
@@ -980,6 +1048,11 @@ document.addEventListener('DOMContentLoaded', function() {
             loadVideo();
         }
     });
+
+        if (isRoomCreator) {
+        console.log('Loading banned words for room creator...');
+        loadBannedWords();
+    }
 
     if (playBtn) playBtn.addEventListener('click', playVideo);
     if (pauseBtn) pauseBtn.addEventListener('click', pauseVideo);

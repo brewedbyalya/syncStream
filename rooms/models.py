@@ -94,23 +94,6 @@ class Room(models.Model):
         
         return True, "Can join"
     
-    def soft_delete(self):
-        try:
-            self.is_active = False
-            self.deleted_at = timezone.now()
-            self.save()
-            
-            self.participants.update(is_online=False)
-            
-            self.screen_sessions.filter(is_active=True).update(
-                is_active=False, 
-                ended_at=timezone.now()
-            )
-            return True
-        except Exception as e:
-            print(f"Error soft deleting room {self.id}: {e}")
-            return False
-    
     def hard_delete(self):
         try:
             self.participants.all().delete()
@@ -122,16 +105,7 @@ class Room(models.Model):
         except Exception as e:
             print(f"Error hard deleting room {self.id}: {e}")
             return False
-    
-    def restore(self):
-        try:
-            self.is_active = True
-            self.deleted_at = None
-            self.save()
-            return True
-        except Exception as e:
-            print(f"Error restoring room {self.id}: {e}")
-            return False
+
     
     def can_be_deleted_by(self, user):
         return self.creator == user or user.is_staff

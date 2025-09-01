@@ -59,7 +59,7 @@ def room_detail(request, room_id):
     
     if not room.is_active:
         if room.creator == request.user:
-            messages.warning(request, f'Room "{room.name}" has been deleted. You can restore it from your rooms page.')
+            messages.warning(request, f'Room "{room.name}" has been deleted.')
             return redirect('rooms:user_rooms')
         else:
             messages.error(request, 'This room no longer exists.')
@@ -191,7 +191,6 @@ def delete_room(request, room_id):
             room.hard_delete()
             messages.success(request, f'Room "{room_name}" has been permanently deleted!')
         else:
-            room.soft_delete()
             messages.success(request, f'Room "{room.name}" has been deleted successfully!')
         
         return redirect('rooms:user_rooms')
@@ -227,15 +226,6 @@ def user_rooms(request):
         'created_rooms': created_rooms,
         'participant_rooms': participant_rooms,
     })
-
-@login_required
-@require_http_methods(['POST'])
-def restore_room(request, room_id):
-    room = get_object_or_404(Room, id=room_id, creator=request.user, is_active=False)
-    
-    room.restore()
-    messages.success(request, f'Room "{room.name}" has been restored successfully!')
-    return redirect('rooms:room_detail', room_id=room.id)
 
 @csrf_exempt
 @require_http_methods(["GET"])

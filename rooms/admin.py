@@ -7,13 +7,8 @@ class RoomAdmin(admin.ModelAdmin):
     list_filter = ('is_private', 'is_active', 'created_at', 'deleted_at')
     search_fields = ('name', 'creator__username')
     readonly_fields = ('created_at', 'deleted_at')
-    actions = ['restore_rooms', 'permanently_delete_rooms']
+    actions = ['permanently_delete_rooms']
     
-    def restore_rooms(self, request, queryset):
-        for room in queryset:
-            room.restore()
-        self.message_user(request, f"{queryset.count()} rooms restored successfully.")
-    restore_rooms.short_description = "Restore selected rooms"
     
     def permanently_delete_rooms(self, request, queryset):
         count = queryset.count()

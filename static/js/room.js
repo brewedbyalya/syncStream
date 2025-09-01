@@ -254,6 +254,13 @@ function handleWebSocketMessage(data) {
         case 'user_unmuted':
             handleUserUnmuted(data);
             break;
+
+        case 'banned_word_added':
+            handleBannedWordAdded(data);
+            break;
+            
+        case 'banned_word_removed':
+            handleBannedWordRemoved(data);
             
         default:
             console.log('Unknown message type:', data.type);
