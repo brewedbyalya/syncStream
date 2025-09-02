@@ -15,6 +15,7 @@ from django.contrib.auth import get_user_model
 from uuid import UUID
 from django.db.models import Q, Count
 from django.core.paginator import Paginator
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -372,9 +373,6 @@ def delete_message(request, room_id, message_id):
         print("DEBUG: Message deleted successfully")
 
         try:
-            from channels.layers import get_channel_layer
-            from asgiref.sync import async_to_sync
-            
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
                 f'room_{room_id}',
@@ -400,7 +398,6 @@ def delete_message(request, room_id, message_id):
         return JsonResponse({'error': 'Room not found'}, status=404)
     except Exception as e:
         print(f"DEBUG: Unexpected error: {str(e)}")
-        import traceback
         traceback.print_exc()
         return JsonResponse({'error': 'Internal server error'}, status=500)
     

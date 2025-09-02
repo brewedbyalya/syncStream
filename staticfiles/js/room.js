@@ -196,7 +196,7 @@ function handleWebSocketMessage(data) {
     
     switch(data.type) {
         case 'chat_message':
-            appendMessage(data.username, data.message, data.timestamp);
+            appendMessage(data.username, data.message, data.timestamp, data.message_id);
             if (isTyping) {
                 sendTypingStop();
             }
@@ -281,7 +281,6 @@ function handleWebSocketMessage(data) {
 
 
 function handleMessageDeleted(data) {
-    
     const messageElement = document.querySelector(`[data-message-id="${data.message_id}"]`);
     if (messageElement) {
         messageElement.remove();
@@ -451,15 +450,21 @@ function handleUserBanned(data) {
     updateOnlineCount(-1);
 }
 
-function handleYouWereBanned(data) {
+async function handleYouWereBanned(data) {
+    console.log('Ban received:', data);
+    
     showNotification(`You were permanently banned from "${data.room_name}" by ${data.banned_by}`, 'danger');
     
-    const redirectUrl = data.redirect_url || '/youre-banned/';
-    const fullUrl = `${redirectUrl}?room_name=${encodeURIComponent(data.room_name)}&banned_by=${encodeURIComponent(data.banned_by)}`;
+    if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
+        roomSocket.close(1000, 'User was banned');
+    }
+    
+    disableRoomFeatures('banned');
     
     setTimeout(() => {
-        window.location.href = fullUrl;
-    }, 2000);
+        const redirectUrl = data.redirect_url || `/rooms/youre-banned/?room_name=${encodeURIComponent(data.room_name)}&banned_by=${encodeURIComponent(data.banned_by)}`;
+        window.location.href = redirectUrl;
+    }, 2500);
 }
 
 function handleUserUnbanned(data) {
@@ -491,12 +496,18 @@ function handleUserKicked(data) {
     }
 }
 
-function handleYouWereKicked(data) {
+async function handleYouWereKicked(data) {
     showNotification(`You were kicked from "${data.room_name}" by ${data.kicked_by}`, 'danger');
+    
+    if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
+        roomSocket.close(1000, 'User was kicked');
+    }
+    
+    disableRoomFeatures();
     
     setTimeout(() => {
         window.location.href = data.redirect_url || '/';
-    }, 2000);
+    }, 2500);
 }
 
 
@@ -508,7 +519,7 @@ function showTypingIndicator(username) {
         showNotification('Error.', 'error');
         return;
     }
-    
+
     clearTimeout(window.typingHideTimeout);
     
     typingUsers.textContent = `${username} is typing`;
@@ -518,6 +529,98 @@ function showTypingIndicator(username) {
         hideTypingIndicator();
     }, 3000);
 }
+
+function disableRoomFeatures(reason = 'kicked') {
+    const chatInput = document.getElementById('chat-input');
+    const chatSend = document.getElementById('chat-send');
+    if (chatInput) chatInput.disabled = true;
+    if (chatSend) chatSend.disabled = true;
+    
+    const playBtn = document.getElementById('play-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const syncBtn = document.getElementById('sync-btn');
+    const loadBtn = document.getElementById('load-video');
+    if (playBtn) playBtn.disabled = true;
+    if (pauseBtn) pauseBtn.disabled = true;
+    if (syncBtn) syncBtn.disabled = true;
+    if (loadBtn) loadBtn.disabled = true;
+    
+    if (reason === 'banned') {
+        showBannedOverlay();
+    } else {
+        showKickedOverlay();
+    }
+}
+
+function showKickedOverlay() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.9);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        font-family: Arial, sans-serif;
+    `;
+    
+    overlay.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <i class="fas fa-ban" style="font-size: 4rem; color: #dc3545; margin-bottom: 20px;"></i>
+            <h2 style="color: #dc3545; margin-bottom: 10px;">You've been kicked</h2>
+            <p style="margin-bottom: 20px; font-size: 1.2rem;">You can no longer participate in this room.</p>
+            <p style="margin-bottom: 30px;">Redirecting to home page...</p>
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+}
+
+function showBannedOverlay() {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.95);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+        font-family: Arial, sans-serif;
+    `;
+    
+    overlay.innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <i class="fas fa-ban" style="font-size: 4rem; color: #dc3545; margin-bottom: 20px;"></i>
+            <h2 style="color: #dc3545; margin-bottom: 10px;">You've Been Permanently Banned</h2>
+            <p style="margin-bottom: 15px; font-size: 1.2rem;">You can no longer access this room.</p>
+            <p style="margin-bottom: 10px; color: #ff6b6b;">This is a permanent ban.</p>
+            <p style="margin-bottom: 30px;">Redirecting to ban information page...</p>
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+}
+
 
 function hideTypingIndicator() {
     const indicator = document.getElementById('typing-indicator');
@@ -612,23 +715,45 @@ function updateChatIndicator(status, text) {
     indicator.textContent = text;
 }
 
-function appendMessage(username, message, timestamp) {
+function appendMessage(username, message, timestamp, messageId) {
     const messageElement = document.createElement('div');
-    messageElement.classList.add('mb-2', 'message');
+    messageElement.classList.add('message-container');
+    messageElement.setAttribute('data-message-id', messageId);
     
     const time = timestamp ? new Date(timestamp).toLocaleTimeString() : new Date().toLocaleTimeString();
-    
     const sanitizedMessage = message.replace(/</g, '&lt;').replace(/>/g, '&gt;');
     
+    let deleteButton = '';
+    if (isRoomCreator) {
+        const escapedMessage = sanitizedMessage.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        const escapedUsername = username.replace(/'/g, "\\'").replace(/"/g, '\\"');
+        
+        deleteButton = `
+            <button class="btn btn-sm btn-link text-danger delete-message-btn" 
+                    onclick="deleteMessage('${messageId}')"
+                    title="Delete message">
+                <i class="fas fa-trash-alt"></i>
+            </button>
+        `;
+    }
+    
+    const usernameLink = `<a href="/accounts/profile/${username}/" class="text-primary"><strong>${username}:</strong></a>`;
+    
     messageElement.innerHTML = `
-        <strong class="text-primary">${username}:</strong> ${sanitizedMessage}
-        <small class="text-muted ms-2">${time}</small>
+        <div class="mb-2 message ${username === "{{ user.username }}" ? 'message-self' : username === 'System' ? 'message-system' : 'message-other'} fade-in">
+            ${usernameLink}
+            <span class="message-content">${sanitizedMessage}</span>
+            <small class="text-muted ms-2">${time}</small>
+            ${deleteButton}
+        </div>
     `;
     
     if (chatMessages) {
         chatMessages.appendChild(messageElement);
         chatMessages.scrollTop = chatMessages.scrollHeight;
     }
+    
+    updateMessageCount();
 }
 
 function sendChatMessage() {
@@ -1062,7 +1187,7 @@ function userLeft(username) {
 }
 
 function banUser(userId, userName) {
-    if (!confirm(`Permanently ban ${userName} from this room? They will not be able to rejoin even with the invite link.`)) return;
+    if (!confirm(`Permanently ban ${userName} from this room?\n\n⚠️ This action cannot be undone! They will not be able to rejoin even with an invite link.`)) return;
     
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
@@ -1072,16 +1197,32 @@ function banUser(userId, userName) {
         body: formData,
         credentials: 'same-origin'
     })
-    .then(response => response.json())
+    .then(response => {
+        if (response.status === 403) {
+            throw new Error('Permission denied');
+        }
+        if (response.status === 400) {
+            throw new Error('Cannot ban yourself');
+        }
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             showNotification(`Permanently banned ${userName} from the room`, 'success');
+            const participantElement = document.querySelector(`.participant-card[data-user-id="${userId}"]`);
+            if (participantElement) {
+                participantElement.remove();
+                updateOnlineCount(-1);
+            }
         } else {
-            showNotification('Failed to ban user: ' + data.error, 'error');
+            showNotification('Failed to ban user: ' + (data.error || 'Unknown error'), 'error');
         }
     })
     .catch(error => {
-        showNotification('Error banning user', 'error');
+        showNotification('Error banning user: ' + error.message, 'error');
     });
 }
 
@@ -1117,7 +1258,7 @@ function updateOnlineCount(change) {
         const currentText = onlineCountElement.textContent;
         const currentCount = parseInt(currentText) || 0;
         const newCount = Math.max(0, currentCount + change);
-        onlineCountElement.textContent = newCount + ' online';
+        onlineCountElement.textContent = newCount;
     }
     
     if (onlineCountBadge) {
@@ -1232,8 +1373,8 @@ function handleFullscreenChange() {
 }
 
 function kickUser(userId, userName) {
-    if (!confirm(`Kick ${userName} from the room? They can rejoin if they have the link.`)) return;
-        
+    if (!confirm(`Kick ${userName} from the room? They will be immediately disconnected.`)) return;
+    
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
     
@@ -1242,24 +1383,32 @@ function kickUser(userId, userName) {
         body: formData,
         credentials: 'same-origin'
     })
-    .then(response => response.json())
+    .then(response => {
+        if (response.status === 403) {
+            throw new Error('Permission denied');
+        }
+        if (response.status === 400) {
+            throw new Error('Cannot kick yourself');
+        }
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             showNotification(`Kicked ${userName} from the room`, 'success');
             const participantElement = document.querySelector(`.participant-card[data-user-id="${userId}"]`);
             if (participantElement) {
                 participantElement.remove();
-            }
-            if (onlineCount) {
-                const count = parseInt(onlineCount.textContent) - 1;
-                onlineCount.textContent = count + ' online';
+                updateOnlineCount(-1);
             }
         } else {
-            showNotification('Failed to kick user: ' + data.error, 'error');
+            showNotification('Failed to kick user: ' + (data.error || 'Unknown error'), 'error');
         }
     })
     .catch(error => {
-        showNotification('Error kicking user', 'error');
+        showNotification('Error kicking user: ' + error.message, 'error');
     });
 }
 
