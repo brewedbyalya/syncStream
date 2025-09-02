@@ -18,6 +18,8 @@ def signup(request):
 
 @login_required
 def profile(request):
+    request.user.refresh_from_db()
+    
     participant_rooms = request.user.participant_set.filter(
         is_online=True
     ).select_related('room').values_list('room', flat=True)
@@ -28,12 +30,9 @@ def profile(request):
     
     total_messages = Message.objects.filter(user=request.user).count()
     
-    is_online = request.user.is_online
-    
     return render(request, 'registration/profile.html', {
         'participant_rooms': rooms_participating,
         'total_messages': total_messages,
-        'is_online': is_online,
     })
 
 @login_required

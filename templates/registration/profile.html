@@ -27,6 +27,11 @@
                     <h5 class="profile-username">{{ user.username }}</h5>
                     <p class="profile-email">{{ user.email }}</p>
                     
+                    <div class="online-status-badge {% if user.is_online %}online{% else %}offline{% endif %}">
+                        <i class="fas fa-circle me-1"></i>
+                        {% if user.is_online %}Online{% else %}Offline{% endif %}
+                    </div>
+                    
                     {% if user.bio %}
                     <div class="profile-bio">
                         <p>{{ user.bio }}</p>
@@ -34,26 +39,6 @@
                     {% endif %}
                     
                     <div class="profile-stats">
-                        <div class="stat-item">
-                            <div class="stat-icon">
-                                <i class="fas fa-calendar-plus"></i>
-                            </div>
-                            <div class="stat-content">
-                                <span class="stat-label">Member since</span>
-                                <span class="stat-value">{{ user.date_joined|date:"M d, Y" }}</span>
-                            </div>
-                        </div>
-                        
-                        <div class="stat-item">
-                            <div class="stat-icon">
-                                <i class="fas fa-sign-in-alt"></i>
-                            </div>
-                            <div class="stat-content">
-                                <span class="stat-label">Last login</span>
-                                <span class="stat-value">{{ user.last_login|date:"M d, Y" }}</span>
-                            </div>
-                        </div>
-                        
                         <div class="stat-item">
                             <div class="stat-icon">
                                 <i class="fas fa-clock"></i>
@@ -69,7 +54,7 @@
                                 <i class="fas fa-circle"></i>
                             </div>
                             <div class="stat-content">
-                                <span class="stat-label">Status</span>
+                                <span class="stat-label">Current status</span>
                                 <span class="stat-value {% if user.is_online %}text-success{% else %}text-muted{% endif %}">
                                     {% if user.is_online %}Online{% else %}Offline{% endif %}
                                 </span>
@@ -220,46 +205,5 @@
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    function updateOnlineStatus() {
-        fetch('/api/user/online-status/', {
-            method: 'GET',
-            credentials: 'same-origin'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.is_online !== undefined) {
-                updateStatusUI(data.is_online);
-            }
-        })
-        .catch(error => console.error('Error checking online status:', error));
-    }
-    
-    function updateStatusUI(isOnline) {
-        const avatarStatus = document.querySelector('.avatar-status');
-        if (avatarStatus) {
-            avatarStatus.className = 'avatar-status ' + (isOnline ? 'status-online' : 'status-offline');
-        }
-        
-        const statusBadge = document.querySelector('.online-status-badge');
-        if (statusBadge) {
-            statusBadge.className = 'online-status-badge ' + (isOnline ? 'online' : 'offline');
-            statusBadge.innerHTML = `<i class="fas fa-circle me-1"></i>${isOnline ? 'Online' : 'Offline'}`;
-        }
-        
-        const statValue = document.querySelector('.stat-content .stat-value');
-        if (statValue) {
-            statValue.textContent = isOnline ? 'Online' : 'Offline';
-            statValue.className = 'stat-value ' + (isOnline ? 'text-success' : 'text-muted');
-        }
-    }
-    
-    setInterval(updateOnlineStatus, 30000);
-    
-    updateOnlineStatus();
-});
-</script>
 
 {% endblock %}
