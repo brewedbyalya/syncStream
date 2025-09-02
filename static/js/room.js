@@ -561,9 +561,13 @@ function appendMessage(username, message, timestamp, messageId) {
         deleteBtn.className = 'btn btn-sm btn-link text-danger delete-message-btn ms-2';
         deleteBtn.title = 'Delete message';
         deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
-        deleteBtn.setAttribute('data-message-id', messageId);
-        messageDiv.appendChild(deleteBtn);
-    }
+        deleteBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            deleteMessage(messageId);
+    };
+                messageDiv.appendChild(deleteBtn);
+}
     
     messageContainer.appendChild(messageDiv);
     

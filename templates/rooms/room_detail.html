@@ -218,34 +218,25 @@
     <div class="card-body p-0">
         <div id="chat-messages" class="chat-messages chat-messages-glass custom-scrollbar">
         {% for message in messages %}
-        <div class="message-container" data-message-id="{{ message.id }}">
-            <div class="message {% if message.user == user %}message-self{% elif message.user.username == 'System' %}message-system{% else %}message-other{% endif %}">
-                <strong><a href="{% url 'view_profile' message.user.username %}" class="text-primary">
-    <strong>{{ message.user.username }}:</strong>
-</a></strong>
-                <span class="message-content">{{ message.message }}</span>
-                <small>
-                    <i class="fas fa-clock me-1"></i>{{ message.created_at|time }}
-                    {% if message.user == user %}
-                    <span class="message-status"><i class="fas fa-check-double text-info"></i></span>
-                    {% endif %}
-                </small>
-                
-                {% if room.creator == user %}
-                <button class="btn btn-sm btn-link text-danger delete-message-btn" 
-                        onclick="deleteMessage('{{ message.id }}')"
-                        title="Delete message">
-                    <i class="fas fa-trash-alt"></i>
-                </button>
-                {% endif %}
-            </div>
-        </div>
-        {% empty %}
-        <div class="text-center text-muted py-4">
-            <i class="fas fa-comments fa-3x mb-2"></i>
-            <p>No messages yet. Start the conversation!</p>
-        </div>
-        {% endfor %}
+<div class="message-container" data-message-id="{{ message.id }}">
+    <div class="message {% if message.user == user %}message-self{% elif message.user.username == 'System' %}message-system{% else %}message-other{% endif %}">
+        <a href="{% url 'view_profile' message.user.username %}" class="text-primary">
+            <strong>{{ message.user.username }}:</strong>
+        </a>
+        <span class="message-content">{{ message.message }}</span>
+        <small class="text-muted ms-2">
+            <i class="fas fa-clock me-1"></i>{{ message.created_at|time }}
+        </small>
+        {% if room.creator == user %}
+        <button class="btn btn-sm btn-link text-danger delete-message-btn ms-2" 
+                onclick="deleteMessage('{{ message.id }}')"
+                title="Delete message">
+            <i class="fas fa-trash-alt"></i>
+        </button>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
         </div>
         
             <div id="typing-indicator" class="typing-indicator d-none">
