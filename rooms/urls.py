@@ -8,6 +8,7 @@ urlpatterns = [
     path('my-rooms/', views.user_rooms, name='user_rooms'),
     path('join-by-password/', views.join_by_password, name='join_by_password'),
     path('browse/', views.room_list, name='room_list'),
+    path('youre-banned/', views.youre_banned, name='youre_banned'),
     path('<uuid:room_id>/', views.room_detail, name='room_detail'),
     path('<uuid:room_id>/edit/', views.edit_room, name='edit_room'),
     path('<uuid:room_id>/delete/', views.delete_room, name='delete_room'),
@@ -23,5 +24,4 @@ urlpatterns = [
     path('<uuid:room_id>/users/<int:user_id>/kick/', views.kick_user, name='kick_user'),
     path('<uuid:room_id>/users/<int:user_id>/ban/', views.ban_user, name='ban_user'),
     path('<uuid:room_id>/users/<int:user_id>/unban/', views.unban_user, name='unban_user'),
-    path('youre-banned/', views.youre_banned, name='youre_banned'),
 ]
