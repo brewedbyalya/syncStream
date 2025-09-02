@@ -25,6 +25,24 @@
     </div>
 </div>
 
+{% if room.allow_screen_share %}
+<div class="mb-3">
+    <div class="card card-gradient">
+        <div class="card-body text-center py-2">
+            <button id="start-screen-share" class="btn btn-primary me-2">
+                <i class="fas fa-desktop me-2"></i>Start Screen Share
+            </button>
+            <button id="stop-screen-share" class="btn btn-danger d-none">
+                <i class="fas fa-stop me-2"></i>Stop Screen Share
+            </button>
+            <div class="mt-1">
+                <small class="text-muted">Share your screen with other participants</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="room-layout">
     <div class="video-section">
         <div class="card card-gradient">
@@ -87,91 +105,67 @@
             </div>
         </div>
 
-       {% if room.allow_screen_share %}
-<div class="collapsible-section">
-    <div class="collapsible-header" onclick="toggleCollapsible('screen-share-section')">
-        <h5 class="mb-0"><i class="fas fa-desktop me-2"></i>Screen Sharing</h5>
-        <i class="fas fa-chevron-down toggle-icon" id="screen-share-icon"></i>
-    </div>
-    <div class="collapsible-content" id="screen-share-section">
-        <div class="card card-gradient">
-            <div class="card-body">
-                <button id="start-screen-share" class="btn btn-primary me-2">
-                    <i class="fas fa-desktop me-2"></i>Start Screen Share
-                </button>
-                <button id="stop-screen-share" class="btn btn-danger d-none">
-                    <i class="fas fa-stop me-2"></i>Stop Screen Share
-                </button>
-                <div class="mt-2">
-                    <small class="text-muted">Share your screen with other participants</small>
-                </div>
+        {% if isRoomCreator and invite_info %}
+        <div class="collapsible-section">
+            <div class="collapsible-header" onclick="toggleCollapsible('invite-section')">
+                <h5 class="mb-0"><i class="fas fa-share-alt me-2"></i>Invite Others</h5>
+                <i class="fas fa-chevron-down toggle-icon" id="invite-icon"></i>
             </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
- {% if isRoomCreator and invite_info %}
-<div class="collapsible-section">
-    <div class="collapsible-header" onclick="toggleCollapsible('invite-section')">
-        <h5 class="mb-0"><i class="fas fa-share-alt me-2"></i>Invite Others</h5>
-        <i class="fas fa-chevron-down toggle-icon" id="invite-icon"></i>
-    </div>
-    <div class="collapsible-content" id="invite-section">
-        <div class="card card-gradient">
-            <div class="card-body">
-                <p class="mb-3">Share this link to invite others to your room:</p>
-                <div class="input-group mb-3">
-                    <input type="text" class="form-control" value="{{ invite_info }}" id="inviteLink" readonly>
-                    <button class="btn btn-primary" onclick="copyInviteLink()">
-                        <i class="fas fa-copy me-1"></i>Copy
-                    </button>
-                </div>
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    This link contains the room password. Anyone with this link can join your room.
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-{% endif %}
-
-        {% if room.creator == user %}
-<div class="collapsible-section">
-    <div class="collapsible-header" onclick="toggleCollapsible('banned-words-section')">
-        <h5 class="mb-0"><i class="fas fa-ban me-2"></i>Banned Words</h5>
-        <i class="fas fa-chevron-down toggle-icon" id="banned-words-icon"></i>
-    </div>
-    <div class="collapsible-content" id="banned-words-section">
-        <div class="card card-gradient">
-            <div class="card-body">
-                <div class="banned-words-container">
-                    <div class="d-flex mb-3">
-                        <input type="text" id="banned-word-input" class="form-control me-2" 
-                               placeholder="Enter word to ban..." maxlength="50">
-                        <button class="btn btn-danger" onclick="addBannedWord()">
-                            <i class="fas fa-plus me-1"></i>Add
-                        </button>
-                    </div>
-                    
-                    <div id="banned-words-list" class="banned-words-list">
-                        <div class="text-center text-muted" id="no-banned-words">
-                            <i class="fas fa-ban fa-2x mb-2"></i>
-                            <p>No banned words yet</p>
+            <div class="collapsible-content" id="invite-section">
+                <div class="card card-gradient">
+                    <div class="card-body">
+                        <p class="mb-3">Share this link to invite others to your room:</p>
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" value="{{ invite_info }}" id="inviteLink" readonly>
+                            <button class="btn btn-primary" onclick="copyInviteLink()">
+                                <i class="fas fa-copy me-1"></i>Copy
+                            </button>
+                        </div>
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            This link contains the room password. Anyone with this link can join your room.
                         </div>
                     </div>
-                    
-                    <div class="alert alert-info mt-3">
-                        <i class="fas fa-info-circle me-2"></i>
-                        Messages containing banned words will be automatically blocked.
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if room.creator == user %}
+        <div class="collapsible-section">
+            <div class="collapsible-header" onclick="toggleCollapsible('banned-words-section')">
+                <h5 class="mb-0"><i class="fas fa-ban me-2"></i>Banned Words</h5>
+                <i class="fas fa-chevron-down toggle-icon" id="banned-words-icon"></i>
+            </div>
+            <div class="collapsible-content" id="banned-words-section">
+                <div class="card card-gradient">
+                    <div class="card-body">
+                        <div class="banned-words-container">
+                            <div class="d-flex mb-3">
+                                <input type="text" id="banned-word-input" class="form-control me-2" 
+                                       placeholder="Enter word to ban..." maxlength="50">
+                                <button class="btn btn-danger" onclick="addBannedWord()">
+                                    <i class="fas fa-plus me-1"></i>Add
+                                </button>
+                            </div>
+                            
+                            <div id="banned-words-list" class="banned-words-list">
+                                <div class="text-center text-muted" id="no-banned-words">
+                                    <i class="fas fa-ban fa-2x mb-2"></i>
+                                    <p>No banned words yet</p>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-info mt-3">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Messages containing banned words will be automatically blocked.
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-{% endif %}
+        {% endif %}
 
         <div class="card card-gradient mt-3">
             <div class="card-header">

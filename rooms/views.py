@@ -229,13 +229,16 @@ def delete_room(request, room_id):
     room = get_object_or_404(Room, id=room_id, creator=request.user)
     
     if request.method == 'POST':
-        permanent = request.POST.get('permanent', False)
+        permanent = request.POST.get('permanent', 'false') == 'true'
+        
         if permanent:
             room_name = room.name
             room.hard_delete()
             messages.success(request, f'Room "{room_name}" has been permanently deleted!')
         else:
-            messages.success(request, f'Room "{room.name}" has been deleted successfully!')
+            room_name = room.name
+            room.delete()
+            messages.success(request, f'Room "{room_name}" has been deleted successfully!')
         
         return redirect('rooms:user_rooms')
     

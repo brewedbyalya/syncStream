@@ -4,14 +4,13 @@
 <div class="row justify-content-center room-options-container">
     <div class="col-md-8 col-lg-6">
         <div class="card room-options-card">
-            <div class="card-header room-options-header {% if room.is_active %}room-active-header{% else %}room-inactive-header{% endif %}">
+            <div class="card-header room-options-header">
                 <h3 class="room-options-title">
-                    <i class="fas {% if room.is_active %}fa-exclamation-triangle{% else %}fa-cog{% endif %} me-2"></i>
-                    {% if room.is_active %}Delete Room{% else %}Room Options{% endif %}
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Delete Room
                 </h3>
             </div>
             <div class="card-body room-options-body">
-                {% if room.is_active %}
                 <div class="room-delete-content">
                     <div class="room-delete-warning">
                         <i class="fas fa-exclamation-circle room-warning-icon"></i>
@@ -19,84 +18,27 @@
                     </div>
                     
                     <p class="room-delete-message">Are you sure you want to delete the room <strong>"{{ room.name }}"</strong>?</p>
-                    <div class="room-delete-info">
-                        <i class="fas fa-info-circle"></i>
-                        <span>This will remove the room from public view, but you can restore it later from your rooms page.</span>
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Warning:</strong> This action cannot be undone. All room data will be permanently deleted.
                     </div>
                     
                     <form method="post" class="room-delete-form">
                         {% csrf_token %}
-                        <input type="hidden" name="permanent" value="false">
+                        <input type="hidden" name="permanent" value="true">
                         <div class="room-options-actions">
-                            <a href="{% url 'rooms:room_detail' room.id %}" class="btn room-options-btn room-options-btn-secondary">
-                                <i class="fas fa-times"></i> Cancel
+                            <a href="{% url 'rooms:user_rooms' %}" class="btn room-options-btn room-options-btn-secondary">
+                                <i class="fas fa-times me-1"></i> Cancel
                             </a>
                             <button type="submit" class="btn room-options-btn room-options-btn-danger">
-                                <i class="fas fa-trash me-1"></i> Delete Room
+                                <i class="fas fa-trash me-1"></i> Permanently Delete Room
                             </button>
                         </div>
                     </form>
                 </div>
-                
-                {% else %}
-                <div class="room-inactive-content">
-                    <div class="room-status-banner">
-                        <i class="fas fa-archive"></i>
-                        <span>This room is currently archived</span>
-                    </div>
-                    
-                    <p class="room-options-message">Room <strong>"{{ room.name }}"</strong> is currently deleted. What would you like to do?</p>
-                    
-                    <div class="row room-options-cards">
-                        <div class="col-md-6 mb-4">
-                            <div class="card room-option-card room-option-card-restore">
-                                <div class="card-body text-center">
-                                    <div class="room-option-icon">
-                                        <i class="fas fa-undo"></i>
-                                    </div>
-                                    <h5 class="room-option-title">Restore Room</h5>
-                                    <p class="room-option-description">Make this room active and available again</p>
-                                    <form action="{% url 'rooms:restore_room' room.id %}" method="post">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn room-options-btn room-options-btn-success">
-                                            <i class="fas fa-undo me-1"></i> Restore
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6 mb-4">
-                            <div class="card room-option-card room-option-card-delete">
-                                <div class="card-body text-center">
-                                    <div class="room-option-icon">
-                                        <i class="fas fa-fire"></i>
-                                    </div>
-                                    <h5 class="room-option-title">Permanently Delete</h5>
-                                    <p class="room-option-description">Remove this room forever (cannot be undone)</p>
-                                    <form method="post">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="permanent" value="true">
-                                        <button type="submit" class="btn room-options-btn room-options-btn-permanent" 
-                                                onclick="return confirm('Are you ABSOLUTELY sure? This will permanently delete the room and all its data forever!')">
-                                            <i class="fas fa-fire me-1"></i> Permanently Delete
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="room-options-footer">
-                        <a href="{% url 'rooms:user_rooms' %}" class="btn room-options-btn room-options-btn-back">
-                            <i class="fas fa-arrow-left me-1"></i> Back to My Rooms
-                        </a>
-                    </div>
-                </div>
-                {% endif %}
             </div>
         </div>
     </div>
 </div>
-
 {% endblock %}

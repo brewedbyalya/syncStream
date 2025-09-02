@@ -19,13 +19,10 @@
                     {% if created_rooms %}
                     <div class="rooms-list">
                         {% for room in created_rooms %}
-                            <div class="list-group-item {% if not room.is_active %}list-group-item-secondary card-glass{% endif %}">
+                            <div class="list-group-item card-glass">
                                 <div class="room-item-header">
                                     <h5 class="room-name">
                                         {{ room.name }}
-                                        {% if not room.is_active %}
-                                        <span class="badge bg-danger">Deleted</span>
-                                        {% endif %}
                                     </h5>
                                     <small class="room-date">{{ room.created_at|date:"M d, Y" }}</small>
                                 </div>
@@ -35,37 +32,15 @@
                                 </div>
                                 
                                 <div class="room-actions">
-                                    {% if room.is_active %}
                                     <a href="{% url 'rooms:room_detail' room.id %}" class="btn btn-success btn-sm">
                                         <i class="fas fa-enter me-1"></i>Join
                                     </a>
                                     <a href="{% url 'rooms:edit_room' room.id %}" class="btn btn-outline-primary btn-sm">
                                         <i class="fas fa-edit me-1"></i>Edit
                                     </a>
-                                    <form action="{% url 'rooms:delete_room' room.id %}" method="post" class="d-inline">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="permanent" value="false">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm" 
-                                                onclick="return confirmDelete('{{ room.name }}')">
-                                            <i class="fas fa-trash me-1"></i>Delete
-                                        </button>
-                                    </form>
-                                    {% else %}
-                                    <form action="{% url 'rooms:restore_room' room.id %}" method="post" class="d-inline">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-success btn-sm">
-                                            <i class="fas fa-undo me-1"></i>Restore
-                                        </button>
-                                    </form>
-                                    <form action="{% url 'rooms:delete_room' room.id %}" method="post" class="d-inline">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="permanent" value="true">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm" 
-                                                onclick="return confirmPermanentDelete('{{ room.name }}')">
-                                            <i class="fas fa-fire me-1"></i>Permanently Delete
-                                        </button>
-                                    </form>
-                                    {% endif %}
+                                    <a href="{% url 'rooms:delete_room' room.id %}" class="btn btn-outline-danger btn-sm">
+                                        <i class="fas fa-trash me-1"></i>Delete
+                                    </a>
                                 </div>
                             </div>
                         {% endfor %}
@@ -118,14 +93,4 @@
         </div>
     </div>
 </div>
-
-<script>
-function confirmDelete(roomName) {
-    return confirm(`Are you sure you want to delete the room "${roomName}"?`);
-}
-
-function confirmPermanentDelete(roomName) {
-    return confirm(`Are you sure you want to PERMANENTLY delete the room "${roomName}"? This action cannot be undone. All room data will be lost forever.`);
-}
-</script>
 {% endblock %}
