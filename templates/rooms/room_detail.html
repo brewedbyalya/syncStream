@@ -220,7 +220,9 @@
         {% for message in messages %}
         <div class="message-container" data-message-id="{{ message.id }}">
             <div class="message {% if message.user == user %}message-self{% elif message.user.username == 'System' %}message-system{% else %}message-other{% endif %}">
-                <strong>{{ message.user.username }}</strong>
+                <strong><a href="{% url 'view_profile' message.user.username %}" class="text-primary">
+    <strong>{{ message.user.username }}:</strong>
+</a></strong>
                 <span class="message-content">{{ message.message }}</span>
                 <small>
                     <i class="fas fa-clock me-1"></i>{{ message.created_at|time }}
@@ -325,7 +327,9 @@
         </span>
         {% endif %}
     </div>
-    <strong class="participant-name">{{ participant.user.username }}</strong>
+    <strong> <a href="{% url 'view_profile' participant.user.username %}" class="participant-name">
+    {{ participant.user.username }}
+</a></strong>
     {% if participant.user == room.creator %}
     <div class="text-warning small">
         <i class="fas fa-crown" title="Room Creator"></i> Creator

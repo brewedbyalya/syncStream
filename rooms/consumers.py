@@ -346,6 +346,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'type': 'user_joined',
             'user_id': event['user_id'],
             'username': event['username'],
+            'is_online': True
         }))
 
     async def user_left(self, event):
@@ -353,6 +354,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'type': 'user_left',
             'user_id': event['user_id'],
             'username': event['username'],
+            'is_online': False
         }))
 
     async def webrtc_signal(self, event):

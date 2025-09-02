@@ -295,6 +295,122 @@ function handleMessageDeleted(data) {
     }
 }
 
+function handleUserJoined(data) {
+    console.log('User joined:', data);
+    
+    const existingParticipant = document.querySelector(`.participant-card[data-user-id="${data.user_id}"]`);
+    if (existingParticipant) {
+        existingParticipant.classList.remove('participant-card-offline');
+        existingParticipant.classList.add('participant-card-online');
+        
+        const statusElement = existingParticipant.querySelector('.status-online, .status-offline');
+        if (statusElement) {
+            statusElement.className = 'status-online';
+            statusElement.textContent = '● Online';
+        }
+    } else {
+        addParticipantToUI({
+            id: data.user_id,
+            username: data.username,
+            is_online: true,
+            is_creator: false,
+            is_muted: false,
+            is_banned: false
+        });
+    }
+    
+    updateOnlineCount(1);
+    showNotification(`${data.username} joined the room`, 'success');
+}
+
+function handleUserLeft(data) {
+    console.log('User left:', data);
+    
+    const participantElement = document.querySelector(`.participant-card[data-user-id="${data.user_id}"]`);
+    if (participantElement) {
+        participantElement.classList.remove('participant-card-online');
+        participantElement.classList.add('participant-card-offline');
+        
+        const statusElement = participantElement.querySelector('.status-online, .status-offline');
+        if (statusElement) {
+            statusElement.className = 'status-offline';
+            statusElement.textContent = '● Offline';
+        }
+    }
+    
+    updateOnlineCount(-1);
+    showNotification(`${data.username} left the room`, 'warning');
+}
+
+
+function addParticipantToUI(participant) {
+    const participantsGrid = document.querySelector('.participants-grid');
+    if (!participantsGrid) return;
+    
+    const participantCard = document.createElement('div');
+    participantCard.className = `participant-card ${participant.is_online ? 'participant-card-online' : 'participant-card-offline'} ${participant.is_creator ? 'participant-card-creator' : ''} ${participant.is_muted ? 'participant-muted' : ''} ${participant.is_banned ? 'participant-banned' : ''}`;
+    participantCard.setAttribute('data-user-id', participant.id);
+    
+    participantCard.innerHTML = `
+        <div class="participant-avatar">
+            <i class="fas fa-user"></i>
+            ${participant.is_muted ? '<span class="muted-badge" title="Muted"><i class="fas fa-volume-mute"></i></span>' : ''}
+            ${participant.is_banned ? '<span class="banned-badge" title="Banned"><i class="fas fa-ban"></i></span>' : ''}
+        </div>
+        <strong class="participant-name">${participant.username}</strong>
+        ${participant.is_creator ? '<div class="text-warning small"><i class="fas fa-crown" title="Room Creator"></i> Creator</div>' : ''}
+        <div class="small">
+            <span class="${participant.is_online ? 'status-online' : 'status-offline'}" title="${participant.is_online ? 'Online' : 'Offline'}">
+                ● ${participant.is_online ? 'Online' : 'Offline'}
+            </span>
+        </div>
+        ${room.creator == user && participant.id != userId ? `
+        <div class="participant-actions">
+            ${participant.is_muted ? `
+            <button class="btn btn-sm btn-success" 
+                    onclick="unmuteUser('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Unmute user">
+                <i class="fas fa-volume-up"></i>
+            </button>
+            ` : `
+            <button class="btn btn-sm btn-warning" 
+                    onclick="showMuteModal('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Mute user">
+                <i class="fas fa-volume-mute"></i>
+            </button>
+            `}
+            <button class="btn btn-sm btn-danger" 
+                    onclick="kickUser('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Kick user from room">
+                <i class="fas fa-user-times"></i>
+            </button>
+            ${participant.is_banned ? `
+            <button class="btn btn-sm btn-success" 
+                    onclick="unbanUser('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Unban user">
+                <i class="fas fa-user-check"></i>
+            </button>
+            ` : `
+            <button class="btn btn-sm btn-danger" 
+                    onclick="banUser('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Permanently ban user">
+                <i class="fas fa-ban"></i>
+            </button>
+            `}
+        </div>
+        ` : ''}
+    `;
+    
+    participantsGrid.appendChild(participantCard);
+}
+
+function removeParticipantFromUI(userId) {
+    const participantElement = document.querySelector(`.participant-card[data-user-id="${userId}"]`);
+    if (participantElement) {
+        participantElement.remove();
+    }
+    updateOnlineCount(-1);
+}
 
 function handleUserMuted(data) {
     showNotification(`${data.username} was muted by ${data.muted_by} for ${data.duration} minutes`, 'warning');
@@ -1221,6 +1337,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(calculateLatency, 30000);
     calculateLatency();
 
+    initializeParticipants();
 });
 
 window.addEventListener('beforeunload', function() {
@@ -1234,3 +1351,30 @@ window.addEventListener('beforeunload', function() {
         clearInterval(timeUpdateInterval);
     }
 });
+
+function initializeParticipants() {
+    console.log('Participants system initialized');
+    
+    const participantsHeader = document.querySelector('.collapsible-header[onclick*="participants-section"]');
+    if (participantsHeader) {
+        participantsHeader.addEventListener('click', function() {
+            setTimeout(() => {
+                const participantsSection = document.getElementById('participants-section');
+                if (participantsSection && participantsSection.classList.contains('active')) {
+                    console.log('Participants section opened');
+                }
+            }, 100);
+        });
+    }
+    
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.participant-actions button')) {
+            console.log('Participant action clicked');
+        }
+    });
+    
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+}

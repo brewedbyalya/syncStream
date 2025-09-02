@@ -1,9 +1,12 @@
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from django.contrib.auth import get_user_model
 from .forms import CustomUserCreationForm, ProfileEditForm
-from rooms.models import Room, Message
+from rooms.models import Room, Message, Participant
+
+User = get_user_model()
 
 def signup(request):
     if request.method == 'POST':
@@ -18,22 +21,31 @@ def signup(request):
 
 @login_required
 def profile(request):
-    request.user.refresh_from_db()
+    return view_profile(request, request.user.username)
+
+@login_required
+def view_profile(request, username):
+    target_user = get_object_or_404(User, username=username)
     
-    participant_rooms = request.user.participant_set.filter(
-        is_online=True
-    ).select_related('room').values_list('room', flat=True)
+    created_rooms = Room.objects.filter(creator=target_user, is_active=True)
     
-    rooms_participating = Room.objects.filter(
-        id__in=participant_rooms
-    ).exclude(creator=request.user).distinct()
+    participant_rooms = Room.objects.filter(
+        participants__user=target_user,
+        participants__is_online=True,
+        is_active=True
+    ).exclude(creator=target_user).distinct()
     
-    total_messages = Message.objects.filter(user=request.user).count()
+    total_messages = Message.objects.filter(user=target_user).count()
     
-    return render(request, 'registration/profile.html', {
-        'participant_rooms': rooms_participating,
+    context = {
+        'target_user': target_user,
+        'created_rooms': created_rooms,
+        'participant_rooms': participant_rooms,
         'total_messages': total_messages,
-    })
+        'is_own_profile': target_user == request.user,
+    }
+    
+    return render(request, 'registration/profile.html', context)
 
 @login_required
 def profile_edit(request):
@@ -46,8 +58,6 @@ def profile_edit(request):
         form = ProfileEditForm(instance=request.user)
     
     return render(request, 'registration/profile_edit.html', {'form': form})
-
-from django.http import JsonResponse
 
 @login_required
 def online_status_api(request):

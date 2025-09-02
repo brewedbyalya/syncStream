@@ -727,6 +727,14 @@
     }
 }
 
+.alert-info {
+    background: rgba(220, 160, 109, 0.2);
+    border: 1px solid var(--golden-sand);
+    color: var(--light-text);
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
 @keyframes float {
     0%, 100% { transform: translateY(0px); }
     50% { transform: translateY(-20px); }
