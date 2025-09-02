@@ -1,28 +1,22 @@
-import dj_database_url
 import os
 from pathlib import Path
-
 from dotenv import load_dotenv
+import dj_database_url
+
 load_dotenv()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-for-dev-only')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-if 'RAILWAY_ENVIRONMENT' in os.environ:
+DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
+
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',') if os.getenv('ALLOWED_HOSTS') else []
+
+if 'RAILWAY_ENVIRONMENT' in os.environ or 'RAILWAY' in os.environ:
+    ALLOWED_HOSTS = ['*']
     DEBUG = False
-    SECURE_SSL_REDIRECT = True
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
 
-
-ALLOWED_HOSTS = ["*"]
-
-# Application definition
 INSTALLED_APPS = [
     'daphne',
     'django.contrib.admin',
@@ -37,13 +31,11 @@ INSTALLED_APPS = [
     'streaming',
 ]
 
-
-# Use custom user model
 AUTH_USER_MODEL = 'users.CustomUser'
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    "whitenoise.middleware.WhiteNoiseMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -71,43 +63,46 @@ TEMPLATES = [
     },
 ]
 
-# Channels configuration
 ASGI_APPLICATION = 'syncstream_project.asgi.application'
 WSGI_APPLICATION = 'syncstream_project.wsgi.application'
 
-# Channel layer configuration (using Redis in production, InMemory for development)
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
-        # For production, use Redis:
-        # 'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        # 'CONFIG': {
-        #     "hosts": [('127.0.0.1', 6379)],
-        # },
-    },
-}
-
-# 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Database configuration
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 if DATABASE_URL:
-    print(f"VALID DB URL VAR: {DATABASE_URL}")
-
     DATABASES = {
-        "default": dj_database_url.config(
-            env="DATABASE_URL",
-            conn_health_checks=True,      
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
             conn_max_age=600,
-            ssl_require=True,
+            conn_health_checks=True,
+            ssl_require=True
         )
     }
 else:
-    print('NO DATABASE_URL ENV VAR')
     DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": "syncstream",
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
         }
+    }
+
+# Channel layers configuration
+REDIS_URL = os.getenv('REDIS_URL')
+
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [REDIS_URL],
+            },
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
     }
 
 # Password validation
@@ -132,19 +127,30 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
+# Static files
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-
+# Media files
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Default primary key field type
+# Default primary key
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Login/Logout URLs
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = None
 LOGIN_URL = 'login'
+
+# Security settings for production
+if 'RAILWAY_ENVIRONMENT' in os.environ or 'RAILWAY' in os.environ:
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    CSRF_TRUSTED_ORIGINS = ['https://*.railway.app', 'https://*.up.railway.app']
+    
+    # Static files with Whitenoise
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
