@@ -28,7 +28,6 @@ let isTyping = false;
 
 
 window.onYouTubeIframeAPIError = function(error) {
-    console.error('YouTube API Error:', error);
     showNotification('YouTube player failed to load', 'error');
     youTubeAPILoadCallbacks.forEach(callback => callback());
     youTubeAPILoadCallbacks = [];
@@ -67,14 +66,13 @@ async function initializeYouTubePlayer() {
         await loadYouTubeAPI();
         createYouTubePlayer();
     } catch (error) {
-        console.error('Failed to load YouTube API:', error);
         showNotification('Failed to load YouTube player', 'error');
     }
 }
 
 function createYouTubePlayer() {
   const el = document.getElementById('youtube-player');
-  if (!el) { console.error('YouTube player element not found'); return; }
+  if (!el) { showNotification('YouTube player element not found', 'error'); return; }
 
   try {
     if (window.player) window.player.destroy();
@@ -101,14 +99,13 @@ function createYouTubePlayer() {
     });
     player = window.player;
   } catch (err) {
-    console.error('Error creating YouTube player:', err);
     showNotification('Error creating YouTube player', 'error');
   }
 }
 
 function onPlayerReady() {
   ytReady = true;
-  console.log('YouTube player ready');
+    showNotification('Video player ready!');
 
   if (pendingVideoId && player && player.cueVideoById) {
     player.cueVideoById(pendingVideoId);
@@ -141,7 +138,6 @@ function onPlayerStateChange(event) {
 }
 
 function onPlayerError(event) {
-    console.error('YouTube player error:', event.data);
     
     const errorMessages = {
         2: 'The request contains an invalid parameter value',
@@ -168,12 +164,10 @@ function onPlayerError(event) {
 function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/room/${roomId}/`;
-    console.log('Connecting to WebSocket:', wsUrl);
     
     roomSocket = new WebSocket(wsUrl);
 
     roomSocket.onopen = function(e) {
-        console.log('WebSocket connection established');
         reconnectAttempts = 0;
         updateChatIndicator('connected', 'Connected');
         showNotification('Connected to room', 'success');
@@ -184,24 +178,21 @@ function connectWebSocket() {
             const data = JSON.parse(e.data);
             handleWebSocketMessage(data);
         } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
+            showNotification('Cannot send message.', 'error');
         }
     };
 
     roomSocket.onclose = function(e) {
-        console.log('WebSocket connection closed', e.code, e.reason);
         handleDisconnection(e);
     };
 
     roomSocket.onerror = function(e) {
-        console.error('WebSocket error:', e);
         updateChatIndicator('error', 'Connection Error');
         showNotification('Connection error', 'danger');
     };
 }
 
 function handleWebSocketMessage(data) {
-    console.log('WebSocket message:', data.type, data);
     
     switch(data.type) {
         case 'chat_message':
@@ -215,6 +206,7 @@ function handleWebSocketMessage(data) {
         case 'typing_indicator': 
             handleTypingIndicator(data);
             break;           
+
         case 'video_control':
             handleVideoControl(data);
             break;
@@ -283,13 +275,12 @@ function handleWebSocketMessage(data) {
             break;
             
         default:
-            console.log('Unknown message type:', data.type);
+            showNotification('Unknown Command.', 'error');
     }
 }
 
 
 function handleMessageDeleted(data) {
-    console.log('Handling message deletion via WebSocket:', data);
     
     const messageElement = document.querySelector(`[data-message-id="${data.message_id}"]`);
     if (messageElement) {
@@ -304,6 +295,122 @@ function handleMessageDeleted(data) {
     }
 }
 
+function handleUserJoined(data) {
+    console.log('User joined:', data);
+    
+    const existingParticipant = document.querySelector(`.participant-card[data-user-id="${data.user_id}"]`);
+    if (existingParticipant) {
+        existingParticipant.classList.remove('participant-card-offline');
+        existingParticipant.classList.add('participant-card-online');
+        
+        const statusElement = existingParticipant.querySelector('.status-online, .status-offline');
+        if (statusElement) {
+            statusElement.className = 'status-online';
+            statusElement.textContent = '● Online';
+        }
+    } else {
+        addParticipantToUI({
+            id: data.user_id,
+            username: data.username,
+            is_online: true,
+            is_creator: false,
+            is_muted: false,
+            is_banned: false
+        });
+    }
+    
+    updateOnlineCount(1);
+    showNotification(`${data.username} joined the room`, 'success');
+}
+
+function handleUserLeft(data) {
+    console.log('User left:', data);
+    
+    const participantElement = document.querySelector(`.participant-card[data-user-id="${data.user_id}"]`);
+    if (participantElement) {
+        participantElement.classList.remove('participant-card-online');
+        participantElement.classList.add('participant-card-offline');
+        
+        const statusElement = participantElement.querySelector('.status-online, .status-offline');
+        if (statusElement) {
+            statusElement.className = 'status-offline';
+            statusElement.textContent = '● Offline';
+        }
+    }
+    
+    updateOnlineCount(-1);
+    showNotification(`${data.username} left the room`, 'warning');
+}
+
+
+function addParticipantToUI(participant) {
+    const participantsGrid = document.querySelector('.participants-grid');
+    if (!participantsGrid) return;
+    
+    const participantCard = document.createElement('div');
+    participantCard.className = `participant-card ${participant.is_online ? 'participant-card-online' : 'participant-card-offline'} ${participant.is_creator ? 'participant-card-creator' : ''} ${participant.is_muted ? 'participant-muted' : ''} ${participant.is_banned ? 'participant-banned' : ''}`;
+    participantCard.setAttribute('data-user-id', participant.id);
+    
+    participantCard.innerHTML = `
+        <div class="participant-avatar">
+            <i class="fas fa-user"></i>
+            ${participant.is_muted ? '<span class="muted-badge" title="Muted"><i class="fas fa-volume-mute"></i></span>' : ''}
+            ${participant.is_banned ? '<span class="banned-badge" title="Banned"><i class="fas fa-ban"></i></span>' : ''}
+        </div>
+        <strong class="participant-name">${participant.username}</strong>
+        ${participant.is_creator ? '<div class="text-warning small"><i class="fas fa-crown" title="Room Creator"></i> Creator</div>' : ''}
+        <div class="small">
+            <span class="${participant.is_online ? 'status-online' : 'status-offline'}" title="${participant.is_online ? 'Online' : 'Offline'}">
+                ● ${participant.is_online ? 'Online' : 'Offline'}
+            </span>
+        </div>
+        ${room.creator == user && participant.id != userId ? `
+        <div class="participant-actions">
+            ${participant.is_muted ? `
+            <button class="btn btn-sm btn-success" 
+                    onclick="unmuteUser('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Unmute user">
+                <i class="fas fa-volume-up"></i>
+            </button>
+            ` : `
+            <button class="btn btn-sm btn-warning" 
+                    onclick="showMuteModal('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Mute user">
+                <i class="fas fa-volume-mute"></i>
+            </button>
+            `}
+            <button class="btn btn-sm btn-danger" 
+                    onclick="kickUser('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Kick user from room">
+                <i class="fas fa-user-times"></i>
+            </button>
+            ${participant.is_banned ? `
+            <button class="btn btn-sm btn-success" 
+                    onclick="unbanUser('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Unban user">
+                <i class="fas fa-user-check"></i>
+            </button>
+            ` : `
+            <button class="btn btn-sm btn-danger" 
+                    onclick="banUser('${participant.id}', '${participant.username.replace(/'/g, "\\'")}')"
+                    title="Permanently ban user">
+                <i class="fas fa-ban"></i>
+            </button>
+            `}
+        </div>
+        ` : ''}
+    `;
+    
+    participantsGrid.appendChild(participantCard);
+}
+
+function removeParticipantFromUI(userId) {
+    const participantElement = document.querySelector(`.participant-card[data-user-id="${userId}"]`);
+    if (participantElement) {
+        participantElement.remove();
+    }
+    updateOnlineCount(-1);
+}
 
 function handleUserMuted(data) {
     showNotification(`${data.username} was muted by ${data.muted_by} for ${data.duration} minutes`, 'warning');
@@ -316,7 +423,6 @@ function handleUserUnmuted(data) {
 }
 
 function handleBannedWordAdded(data) {
-    console.log('Banned word added:', data);
     
     if (isRoomCreator) {
         addBannedWordToUI(data.word);
@@ -327,7 +433,6 @@ function handleBannedWordAdded(data) {
 }
 
 function handleBannedWordRemoved(data) {
-    console.log('Banned word removed:', data);
     
     if (isRoomCreator) {
         removeBannedWordFromUI(data.word);
@@ -348,9 +453,13 @@ function handleUserBanned(data) {
 
 function handleYouWereBanned(data) {
     showNotification(`You were permanently banned from "${data.room_name}" by ${data.banned_by}`, 'danger');
+    
+    const redirectUrl = data.redirect_url || '/youre-banned/';
+    const fullUrl = `${redirectUrl}?room_name=${encodeURIComponent(data.room_name)}&banned_by=${encodeURIComponent(data.banned_by)}`;
+    
     setTimeout(() => {
-        window.location.href = '/';
-    }, 3000);
+        window.location.href = fullUrl;
+    }, 2000);
 }
 
 function handleUserUnbanned(data) {
@@ -358,7 +467,6 @@ function handleUserUnbanned(data) {
 }
 
 function handleTypingIndicator(data) {
-    console.log('Typing indicator received:', data);
     
     if (data.user_id != userId) {
         if (data.is_typing) {
@@ -370,7 +478,6 @@ function handleTypingIndicator(data) {
 }
 
 function handleUserKicked(data) {
-    console.log('User kicked:', data);
     showNotification(`${data.username} was kicked by ${data.kicked_by}`, 'warning');
     
     const participantElement = document.querySelector(`.participant-card[data-user-id="${data.user_id}"]`);
@@ -385,21 +492,20 @@ function handleUserKicked(data) {
 }
 
 function handleYouWereKicked(data) {
-    console.log('You were kicked:', data);
     showNotification(`You were kicked from "${data.room_name}" by ${data.kicked_by}`, 'danger');
     
     setTimeout(() => {
-        showNotification('Redirecting to home page...', 'info');
         window.location.href = data.redirect_url || '/';
-    }, 3000);
+    }, 2000);
 }
+
 
 function showTypingIndicator(username) {
     const indicator = document.getElementById('typing-indicator');
     const typingUsers = document.getElementById('typing-users');
     
     if (!indicator || !typingUsers) {
-        console.error('Typing indicator elements not found');
+        showNotification('Error.', 'error');
         return;
     }
     
@@ -566,7 +672,6 @@ async function loadYouTubeVideo(videoId) {
       pendingVideoId = videoId;
     }
   } catch (err) {
-    console.error('Error loading YouTube video:', err);
     showNotification('Failed to load YouTube video', 'error');
   }
 }
@@ -628,12 +733,11 @@ function loadGenericVideo(url) {
     });
     
     videoElement.addEventListener('error', (e) => {
-        console.error('Video error:', e);
         showNotification('Error loading video', 'error');
     });
     
     videoElement.addEventListener('canplay', () => {
-        console.log('Video can play');
+        showNotification('Video can play.', 'success');
     });
 }
 
@@ -643,7 +747,7 @@ function cleanupYouTubePlayer() {
             window.player.destroy();
             window.player = null;
         } catch (error) {
-            console.error('Error destroying YouTube player:', error);
+        showNotification('Error.', 'error');
         }
     }
 }
@@ -704,7 +808,6 @@ async function loadVideoToPlayer(url) {
             videoTypeDisplay.textContent = videoType.charAt(0).toUpperCase() + videoType.slice(1);
         }
     } catch (error) {
-        console.error('Error loading video:', error);
         showNotification('Error loading video: ' + error.message, 'error');
         
         videoContainer.innerHTML = '';
@@ -905,7 +1008,6 @@ async function startScreenSharing() {
             showNotification('Screen sharing not available', 'error');
         }
     } catch (error) {
-        console.error('Screen sharing error:', error);
         showNotification('Failed to start screen sharing: ' + error.message, 'error');
     }
 }
@@ -979,7 +1081,6 @@ function banUser(userId, userName) {
         }
     })
     .catch(error => {
-        console.error('Error banning user:', error);
         showNotification('Error banning user', 'error');
     });
 }
@@ -1004,7 +1105,6 @@ function unbanUser(userId, userName) {
         }
     })
     .catch(error => {
-        console.error('Error unbanning user:', error);
         showNotification('Error unbanning user', 'error');
     });
 }
@@ -1133,9 +1233,7 @@ function handleFullscreenChange() {
 
 function kickUser(userId, userName) {
     if (!confirm(`Kick ${userName} from the room? They can rejoin if they have the link.`)) return;
-    
-    console.log('Kicking user:', userId, userName);
-    
+        
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
     
@@ -1161,7 +1259,6 @@ function kickUser(userId, userName) {
         }
     })
     .catch(error => {
-        console.error('Error kicking user:', error);
         showNotification('Error kicking user', 'error');
     });
 }
@@ -1221,7 +1318,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
         if (isRoomCreator) {
-        console.log('Loading banned words for room creator...');
         loadBannedWords();
     }
 
@@ -1241,7 +1337,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(calculateLatency, 30000);
     calculateLatency();
 
-    console.log('SyncStream room initialized');
+    initializeParticipants();
 });
 
 window.addEventListener('beforeunload', function() {
@@ -1255,3 +1351,30 @@ window.addEventListener('beforeunload', function() {
         clearInterval(timeUpdateInterval);
     }
 });
+
+function initializeParticipants() {
+    console.log('Participants system initialized');
+    
+    const participantsHeader = document.querySelector('.collapsible-header[onclick*="participants-section"]');
+    if (participantsHeader) {
+        participantsHeader.addEventListener('click', function() {
+            setTimeout(() => {
+                const participantsSection = document.getElementById('participants-section');
+                if (participantsSection && participantsSection.classList.contains('active')) {
+                    console.log('Participants section opened');
+                }
+            }, 100);
+        });
+    }
+    
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.participant-actions button')) {
+            console.log('Participant action clicked');
+        }
+    });
+    
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    const tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+}

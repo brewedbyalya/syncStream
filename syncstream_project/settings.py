@@ -87,24 +87,27 @@ CHANNEL_LAYERS = {
 }
 
 # 
-if 'RAILWAY_ENVIRONMENT' in os.environ or 'DATABASE_URL' in os.environ:
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+ if DATABASE_URL
+    print(f"VALID DB URL VAR: {DATABASE_URL})
     DATABASES = {
-        'default': dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
+        "default": dj_database_url.config(
+            env="DATABASE_URL",
+            conn_health_checks=True,      
             conn_max_age=600,
-            conn_health_checks=True,
             ssl_require=True,
         )
     }
 else:
+    print('NO DATABASE_URL ENV VAR')
     DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'syncstream',
-            }
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": "syncstream",
         }
-
-
+    }
+    
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -132,6 +135,8 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -141,8 +146,3 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = None
 LOGIN_URL = 'login'
-
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SAMESITE = 'Lax'
