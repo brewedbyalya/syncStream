@@ -460,7 +460,6 @@
     document.addEventListener('DOMContentLoaded', function() {
         if (typeof roomId !== 'undefined' && typeof userId !== 'undefined') {
             webRTCManager = new WebRTCManager(roomId, userId, username || 'User');
-            console.log('WebRTC manager initialized');
         }
     });
 </script>
@@ -469,11 +468,8 @@
 <script src="{% static 'js/room.js' %}"></script>
 <script>
 
-function deleteMessage(messageId) {
-    console.log('Deleting message ID:', messageId);
-    
+function deleteMessage(messageId) {    
     if (!messageId || messageId === 'undefined') {
-        console.error('Invalid message ID:', messageId);
         showNotification('Cannot delete message: Invalid message ID', 'error');
         return;
     }
@@ -521,7 +517,6 @@ function deleteMessage(messageId) {
         }
     })
     .catch(error => {
-        console.error('Error deleting message:', error);
         showNotification('Error deleting message: ' + error.message, 'error');
     });
 }
@@ -559,7 +554,6 @@ function muteUser(duration) {
         }
     })
     .catch(error => {
-        console.error('Error muting user:', error);
         showNotification('Error muting user', 'error');
     });
 }
@@ -585,7 +579,6 @@ function unmuteUser(userId, userName) {
         }
     })
     .catch(error => {
-        console.error('Error unmuting user:', error);
         showNotification('Error unmuting user', 'error');
     });
 }
@@ -783,7 +776,6 @@ function copyRoomUrl() {
     navigator.clipboard.writeText(roomUrl).then(() => {
         showNotification('Room link copied to clipboard!', 'success');
     }).catch(err => {
-        console.error('Failed to copy room URL:', err);
         showNotification('Failed to copy room link', 'error');
     });
 }
@@ -794,7 +786,6 @@ function copyVideoUrl() {
         navigator.clipboard.writeText(videoUrl).then(() => {
             showNotification('Video URL copied to clipboard!', 'success');
         }).catch(err => {
-            console.error('Failed to copy video URL:', err);
             showNotification('Failed to copy video URL', 'error');
         });
     } else {
@@ -939,7 +930,6 @@ function addBannedWord() {
         }
     })
     .catch(error => {
-        console.error('Error adding banned word:', error);
         showNotification('Error adding banned word', 'error');
     });
 }
@@ -965,7 +955,6 @@ function removeBannedWord(word) {
         }
     })
     .catch(error => {
-        console.error('Error removing banned word:', error);
         showNotification('Error removing banned word', 'error');
     });
 }
@@ -1043,9 +1032,7 @@ function displayBannedWords(words) {
         console.error('Banned words container not found');
         return;
     }
-    
-    console.log('Displaying banned words:', words);
-    
+        
     if (!words || words.length === 0) {
         if (emptyState) {
             emptyState.style.display = 'block';

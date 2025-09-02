@@ -28,7 +28,6 @@ let isTyping = false;
 
 
 window.onYouTubeIframeAPIError = function(error) {
-    console.error('YouTube API Error:', error);
     showNotification('YouTube player failed to load', 'error');
     youTubeAPILoadCallbacks.forEach(callback => callback());
     youTubeAPILoadCallbacks = [];
@@ -67,14 +66,13 @@ async function initializeYouTubePlayer() {
         await loadYouTubeAPI();
         createYouTubePlayer();
     } catch (error) {
-        console.error('Failed to load YouTube API:', error);
         showNotification('Failed to load YouTube player', 'error');
     }
 }
 
 function createYouTubePlayer() {
   const el = document.getElementById('youtube-player');
-  if (!el) { console.error('YouTube player element not found'); return; }
+  if (!el) { showNotification('YouTube player element not found', 'error'); return; }
 
   try {
     if (window.player) window.player.destroy();
@@ -101,14 +99,13 @@ function createYouTubePlayer() {
     });
     player = window.player;
   } catch (err) {
-    console.error('Error creating YouTube player:', err);
     showNotification('Error creating YouTube player', 'error');
   }
 }
 
 function onPlayerReady() {
   ytReady = true;
-  console.log('YouTube player ready');
+    showNotification('Video player ready!');
 
   if (pendingVideoId && player && player.cueVideoById) {
     player.cueVideoById(pendingVideoId);
@@ -141,7 +138,6 @@ function onPlayerStateChange(event) {
 }
 
 function onPlayerError(event) {
-    console.error('YouTube player error:', event.data);
     
     const errorMessages = {
         2: 'The request contains an invalid parameter value',
@@ -168,12 +164,10 @@ function onPlayerError(event) {
 function connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/room/${roomId}/`;
-    console.log('Connecting to WebSocket:', wsUrl);
     
     roomSocket = new WebSocket(wsUrl);
 
     roomSocket.onopen = function(e) {
-        console.log('WebSocket connection established');
         reconnectAttempts = 0;
         updateChatIndicator('connected', 'Connected');
         showNotification('Connected to room', 'success');
@@ -182,27 +176,23 @@ function connectWebSocket() {
     roomSocket.onmessage = function(e) {
         try {
             const data = JSON.parse(e.data);
-            console.log('RAW WebSocket message received:', data);
             handleWebSocketMessage(data);
         } catch (error) {
-            console.error('Error parsing WebSocket message:', error, 'Raw data:', e.data);
+            showNotification('Cannot send message.', 'error');
         }
     };
 
     roomSocket.onclose = function(e) {
-        console.log('WebSocket connection closed', e.code, e.reason);
         handleDisconnection(e);
     };
 
     roomSocket.onerror = function(e) {
-        console.error('WebSocket error:', e);
         updateChatIndicator('error', 'Connection Error');
         showNotification('Connection error', 'danger');
     };
 }
 
 function handleWebSocketMessage(data) {
-    console.log('WebSocket message:', data.type, data);
     
     switch(data.type) {
         case 'chat_message':
@@ -285,13 +275,12 @@ function handleWebSocketMessage(data) {
             break;
             
         default:
-            console.log('Unknown message type:', data.type);
+            showNotification('Unknown Command.', 'error');
     }
 }
 
 
 function handleMessageDeleted(data) {
-    console.log('Handling message deletion via WebSocket:', data);
     
     const messageElement = document.querySelector(`[data-message-id="${data.message_id}"]`);
     if (messageElement) {
@@ -318,7 +307,6 @@ function handleUserUnmuted(data) {
 }
 
 function handleBannedWordAdded(data) {
-    console.log('Banned word added:', data);
     
     if (isRoomCreator) {
         addBannedWordToUI(data.word);
@@ -329,7 +317,6 @@ function handleBannedWordAdded(data) {
 }
 
 function handleBannedWordRemoved(data) {
-    console.log('Banned word removed:', data);
     
     if (isRoomCreator) {
         removeBannedWordFromUI(data.word);
@@ -349,7 +336,6 @@ function handleUserBanned(data) {
 }
 
 function handleYouWereBanned(data) {
-    console.log('Handling ban:', data);
     showNotification(`You were permanently banned from "${data.room_name}" by ${data.banned_by}`, 'danger');
     
     const redirectUrl = data.redirect_url || '/youre-banned/';
@@ -365,7 +351,6 @@ function handleUserUnbanned(data) {
 }
 
 function handleTypingIndicator(data) {
-    console.log('Typing indicator received:', data);
     
     if (data.user_id != userId) {
         if (data.is_typing) {
@@ -377,7 +362,6 @@ function handleTypingIndicator(data) {
 }
 
 function handleUserKicked(data) {
-    console.log('User kicked:', data);
     showNotification(`${data.username} was kicked by ${data.kicked_by}`, 'warning');
     
     const participantElement = document.querySelector(`.participant-card[data-user-id="${data.user_id}"]`);
@@ -392,7 +376,6 @@ function handleUserKicked(data) {
 }
 
 function handleYouWereKicked(data) {
-    console.log('Handling kick:', data);
     showNotification(`You were kicked from "${data.room_name}" by ${data.kicked_by}`, 'danger');
     
     setTimeout(() => {
@@ -406,7 +389,7 @@ function showTypingIndicator(username) {
     const typingUsers = document.getElementById('typing-users');
     
     if (!indicator || !typingUsers) {
-        console.error('Typing indicator elements not found');
+        showNotification('Error.', 'error');
         return;
     }
     
@@ -573,7 +556,6 @@ async function loadYouTubeVideo(videoId) {
       pendingVideoId = videoId;
     }
   } catch (err) {
-    console.error('Error loading YouTube video:', err);
     showNotification('Failed to load YouTube video', 'error');
   }
 }
@@ -635,12 +617,11 @@ function loadGenericVideo(url) {
     });
     
     videoElement.addEventListener('error', (e) => {
-        console.error('Video error:', e);
         showNotification('Error loading video', 'error');
     });
     
     videoElement.addEventListener('canplay', () => {
-        console.log('Video can play');
+        showNotification('Video can play.', 'success');
     });
 }
 
@@ -650,7 +631,7 @@ function cleanupYouTubePlayer() {
             window.player.destroy();
             window.player = null;
         } catch (error) {
-            console.error('Error destroying YouTube player:', error);
+        showNotification('Error.', 'error');
         }
     }
 }
@@ -711,7 +692,6 @@ async function loadVideoToPlayer(url) {
             videoTypeDisplay.textContent = videoType.charAt(0).toUpperCase() + videoType.slice(1);
         }
     } catch (error) {
-        console.error('Error loading video:', error);
         showNotification('Error loading video: ' + error.message, 'error');
         
         videoContainer.innerHTML = '';
@@ -912,7 +892,6 @@ async function startScreenSharing() {
             showNotification('Screen sharing not available', 'error');
         }
     } catch (error) {
-        console.error('Screen sharing error:', error);
         showNotification('Failed to start screen sharing: ' + error.message, 'error');
     }
 }
@@ -986,7 +965,6 @@ function banUser(userId, userName) {
         }
     })
     .catch(error => {
-        console.error('Error banning user:', error);
         showNotification('Error banning user', 'error');
     });
 }
@@ -1011,7 +989,6 @@ function unbanUser(userId, userName) {
         }
     })
     .catch(error => {
-        console.error('Error unbanning user:', error);
         showNotification('Error unbanning user', 'error');
     });
 }
@@ -1140,9 +1117,7 @@ function handleFullscreenChange() {
 
 function kickUser(userId, userName) {
     if (!confirm(`Kick ${userName} from the room? They can rejoin if they have the link.`)) return;
-    
-    console.log('Kicking user:', userId, userName);
-    
+        
     const formData = new FormData();
     formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
     
@@ -1168,7 +1143,6 @@ function kickUser(userId, userName) {
         }
     })
     .catch(error => {
-        console.error('Error kicking user:', error);
         showNotification('Error kicking user', 'error');
     });
 }
@@ -1228,7 +1202,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
         if (isRoomCreator) {
-        console.log('Loading banned words for room creator...');
         loadBannedWords();
     }
 
@@ -1248,7 +1221,6 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(calculateLatency, 30000);
     calculateLatency();
 
-    console.log('SyncStream room initialized');
 });
 
 window.addEventListener('beforeunload', function() {

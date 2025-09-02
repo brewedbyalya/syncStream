@@ -21,7 +21,6 @@ class WebRTCManager {
             rtcpMuxPolicy: 'require'
         };
         
-        console.log('WebRTC Manager initialized for user:', username);
     }
 
     async startScreenShare() {
@@ -30,7 +29,6 @@ class WebRTCManager {
                 throw new Error('Screen sharing is not supported in this browser');
             }
 
-            console.log('Requesting screen share...');
             this.localStream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
                     cursor: 'always',
@@ -43,7 +41,6 @@ class WebRTCManager {
 
             this.localStream.getTracks().forEach(track => {
                 track.onended = () => {
-                    console.log('Screen share track ended');
                     this.stopScreenShare();
                     if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
                         roomSocket.send(JSON.stringify({
@@ -70,11 +67,9 @@ class WebRTCManager {
                 username: this.username
             });
 
-            console.log('Screen sharing started successfully');
             return true;
 
         } catch (error) {
-            console.error('Error starting screen share:', error);
             this.handleError(error);
             return false;
         }
@@ -83,10 +78,8 @@ class WebRTCManager {
     createPeerConnection() {
         try {
             this.peerConnection = new RTCPeerConnection(this.configuration);
-            console.log('PeerConnection created');
 
             this.peerConnection.ontrack = (event) => {
-                console.log('Remote track received:', event);
                 const remoteStream = event.streams[0];
                 if (remoteStream) {
                     const trackId = event.track.id;
@@ -97,7 +90,6 @@ class WebRTCManager {
 
             this.peerConnection.onicecandidate = (event) => {
                 if (event.candidate) {
-                    console.log('ICE candidate generated');
                     this.sendWebRTCSignal({
                         type: 'ice-candidate',
                         candidate: event.candidate,
@@ -123,7 +115,6 @@ class WebRTCManager {
             this.setupDataChannel();
 
         } catch (error) {
-            console.error('Error creating peer connection:', error);
             this.handleError(error);
         }
     }
@@ -136,14 +127,12 @@ class WebRTCManager {
             });
 
             this.dataChannel.onopen = () => {
-                console.log('Data channel opened');
                 showNotification('Screen sharing connection established', 'success');
             };
 
             this.dataChannel.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('Data channel message:', data);
                 } catch (error) {
                     console.error('Error parsing data channel message:', error);
                 }
@@ -164,7 +153,6 @@ class WebRTCManager {
 
     async handleSignal(data) {
         try {
-            console.log('Received WebRTC signal:', data.type);
             
             switch(data.type) {
                 case 'offer':
@@ -180,15 +168,12 @@ class WebRTCManager {
                     console.warn('Unknown WebRTC signal type:', data.type);
             }
         } catch (error) {
-            console.error('Error handling WebRTC signal:', error);
             this.handleError(error);
         }
     }
 
     async handleOffer(offerData) {
-        try {
-            console.log('Handling offer from:', offerData.username);
-            
+        try {            
             if (!this.peerConnection) {
                 this.createPeerConnection();
             }
@@ -216,14 +201,12 @@ class WebRTCManager {
             });
 
         } catch (error) {
-            console.error('Error handling offer:', error);
             this.handleError(error);
         }
     }
 
     async handleAnswer(answerData) {
         try {
-            console.log('Handling answer from:', answerData.username);
             
             if (this.peerConnection) {
                 const answer = {
@@ -233,7 +216,6 @@ class WebRTCManager {
                 await this.peerConnection.setRemoteDescription(answer);
             }
         } catch (error) {
-            console.error('Error handling answer:', error);
             this.handleError(error);
         }
     }
@@ -280,7 +262,6 @@ class WebRTCManager {
             `;
             container.appendChild(infoDiv);
 
-            console.log('Remote screen share displayed');
 
         } catch (error) {
             console.error('Error displaying remote stream:', error);
@@ -289,19 +270,16 @@ class WebRTCManager {
 
     sendWebRTCSignal(data) {
         if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
-            console.log('Sending WebRTC signal:', data.type);
             roomSocket.send(JSON.stringify({
                 type: 'webrtc_signal',
                 data: data
             }));
         } else {
-            console.warn('WebSocket not connected, cannot send WebRTC signal');
             showNotification('Connection lost. Cannot share screen.', 'error');
         }
     }
 
     stopScreenShare() {
-        console.log('Stopping screen share...');
         
         if (this.localStream) {
             this.localStream.getTracks().forEach(track => {
@@ -329,7 +307,6 @@ class WebRTCManager {
         if (stopBtn) stopBtn.classList.add('d-none');
         if (startBtn) startBtn.classList.remove('d-none');
 
-        console.log('Screen sharing stopped');
     }
 
     updateConnectionStatus(state) {
@@ -350,7 +327,6 @@ class WebRTCManager {
     }
 
     handleError(error) {
-        console.error('WebRTC error:', error);
         
         let errorMessage = 'Screen sharing error: ';
         switch(error.name) {
@@ -380,7 +356,6 @@ let webRTCManager;
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof roomId !== 'undefined' && typeof userId !== 'undefined' && typeof username !== 'undefined') {
         webRTCManager = new WebRTCManager(roomId, userId, username);
-        console.log('WebRTC manager initialized successfully');
     } else {
         console.error('WebRTC manager: Missing required variables (roomId, userId, username)');
     }

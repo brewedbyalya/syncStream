@@ -51,11 +51,6 @@
                             <i class="fas fa-compass me-1"></i>Browse Rooms
                         </a>
                     </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'rooms:user_rooms' %}">
-                            <i class="fas fa-film me-1"></i>My Rooms
-                        </a>
-                    </li>
                     {% endif %}
                 </ul>
                 
@@ -68,6 +63,9 @@
                         <ul class="dropdown-menu dropdown-menu-custom" aria-labelledby="navbarDropdown">
                             <li><a class="dropdown-item" href="{% url 'profile' %}">
                                 <i class="fas fa-user me-2"></i>Profile
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'rooms:user_rooms' %}">
+                                <i class="fas fa-film me-2"></i>My Rooms
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
