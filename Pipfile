@@ -12,6 +12,7 @@ python-dotenv = "*"
 whitenoise = "*"
 gunicorn = "*"
 dj-database-url = "*"
+railwayapp = "*"
 
 [dev-packages]
 
