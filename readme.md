@@ -24,3 +24,4 @@ A website where users can create virtual rooms (both public and private) and eit
 ## 📚 Credits / References Used
 - [Color Scheme](https://colorhunt.co/palette/e4004bed775afad691c9cdcf)
 - [Images](https://www.pexels.com/)
+- Thank you Nabila for helping me in getting the video player working. 

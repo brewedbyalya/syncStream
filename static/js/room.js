@@ -347,9 +347,12 @@ function handleUserBanned(data) {
 }
 
 function handleYouWereBanned(data) {
+    console.log('You were banned:', data);
     showNotification(`You were permanently banned from "${data.room_name}" by ${data.banned_by}`, 'danger');
+    
     setTimeout(() => {
-        window.location.href = '/';
+        showNotification('Redirecting...', 'info');
+        window.location.href = data.redirect_url || '/youre-banned/';
     }, 3000);
 }
 

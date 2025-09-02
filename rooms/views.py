@@ -24,6 +24,16 @@ def home(request):
     rooms = Room.objects.filter(is_active=True, is_private=False)
     return render(request, 'rooms/home.html', {'rooms': rooms})
 
+
+def youre_banned(request):
+    room_name = request.GET.get('room_name', '')
+    banned_by = request.GET.get('banned_by', '')
+    
+    return render(request, 'rooms/youre_banned.html', {
+        'room_name': room_name,
+        'banned_by': banned_by
+    })
+
 def room_list(request):
     search_query = request.GET.get('q', '')
     privacy_filter = request.GET.get('privacy', 'all')
@@ -570,7 +580,8 @@ def kick_user(request, room_id, user_id):
                 'type': 'you_were_kicked',
                 'room_id': str(room_id),
                 'room_name': room.name,
-                'kicked_by': request.user.username
+                'kicked_by': request.user.username,
+                'redirect_url': '/'
             }
         )
         
@@ -613,7 +624,8 @@ def ban_user(request, room_id, user_id):
                 'type': 'you_were_banned',
                 'room_id': str(room_id),
                 'room_name': room.name,
-                'banned_by': request.user.username
+                'banned_by': request.user.username,
+                'redirect_url': f'/youre-banned/?room_name={room.name}&banned_by={request.user.username}'
             }
         )
         

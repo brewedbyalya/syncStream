@@ -23,4 +23,5 @@ urlpatterns = [
     path('<uuid:room_id>/users/<int:user_id>/kick/', views.kick_user, name='kick_user'),
     path('<uuid:room_id>/users/<int:user_id>/ban/', views.ban_user, name='ban_user'),
     path('<uuid:room_id>/users/<int:user_id>/unban/', views.unban_user, name='unban_user'),
+    path('youre-banned/', views.youre_banned, name='youre_banned'),
 ]

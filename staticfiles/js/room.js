@@ -390,7 +390,7 @@ function handleYouWereKicked(data) {
     
     setTimeout(() => {
         showNotification('Redirecting to home page...', 'info');
-        window.location.href = '/';
+        window.location.href = data.redirect_url || '/';
     }, 3000);
 }
 

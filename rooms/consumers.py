@@ -402,8 +402,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'type': 'you_were_kicked',
             'room_id': event['room_id'],
             'room_name': event['room_name'],
-            'kicked_by': event['kicked_by']
+            'kicked_by': event['kicked_by'],
+            'redirect_url': '/'
         }))
+        await self.close(code=4006)
 
     async def user_muted(self, event):
         await self.send(text_data=json.dumps({
@@ -436,8 +438,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'type': 'you_were_banned',
             'room_id': event['room_id'],
             'room_name': event['room_name'],
-            'banned_by': event['banned_by']
+            'banned_by': event['banned_by'],
+            'redirect_url': '/youre-banned/'
         }))
+        await self.close(code=4007)
 
     async def user_unbanned(self, event):
         await self.send(text_data=json.dumps({
@@ -449,6 +453,14 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
     async def handle_chat_message(self, data):
         try:
+
+            is_muted = await self.check_if_muted()
+            if is_muted:
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'You are currently muted and cannot send messages'
+                }))
+                return
             message = data.get('message', '').strip()
             
             if not message:
@@ -495,15 +507,6 @@ class RoomConsumer(AsyncWebsocketConsumer):
                             'message_id': str(saved_message.id),
                         }
                     )
-
-            is_muted = await self.check_if_muted()
-            if is_muted:
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': 'You are currently muted and cannot send messages'
-                }))
-                return
-            
             
         except Exception as e:
             logger.error(f"Error handling chat message: {str(e)}")
@@ -637,12 +640,21 @@ class RoomConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, room, message):
         try:
+            participant = Participant.objects.get(room=room, user=self.user)
+            if participant.is_currently_muted():
+                return None
+            
             return Message.objects.create(
                 room=room,
                 user=self.user,
                 message=message,
                 message_type='text'
             )
+
+        except Participant.DoesNotExist:
+            logger.warning(f"Participant not found for user {self.user.id} in room {room.id}")
+            return None
+
         except Exception as e:
             logger.error(f"Error saving message: {str(e)}")
             return None

@@ -3,7 +3,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "python manage.py migrate && gunicorn your_project.wsgi:application --bind 0.0.0.0:$PORT",
+    "startCommand": "python manage.py migrate && gunicorn syncstream_project.wsgi:application --bind 0.0.0.0:$PORT",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }
