@@ -13,8 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-if not 'RENDER' in os.environ:
-    DEBUG = True
+DEBUG = True
 
 
 ALLOWED_HOSTS = ["*"]
@@ -85,20 +84,10 @@ CHANNEL_LAYERS = {
 }
 
 # Database
-if 'RENDER' in os.environ:
-    DATABASES = {
-        "default": dj_database_url.config(
-            default=os.environ.get('DATABASE_URL'),
-            conn_max_age=600,
-            conn_health_checks=True,
-            ssl_require=True,
-        ),
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'syncstream',
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'syncstream',
         }
     }
 
