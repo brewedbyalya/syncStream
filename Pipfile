@@ -7,8 +7,11 @@ name = "pypi"
 pillow = "*"
 django-cloudinary-storage = "*"
 cloudinary = "*"
-python-dotenv = "*"
 psycopg2-binary = "*"
+python-dotenv = "*"
+whitenoise = "*"
+gunicorn = "*"
+dj-database-url = "*"
 
 [dev-packages]
 
