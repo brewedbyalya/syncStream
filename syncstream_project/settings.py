@@ -89,8 +89,9 @@ CHANNEL_LAYERS = {
 # 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
- if DATABASE_URL
-    print(f"VALID DB URL VAR: {DATABASE_URL})
+if DATABASE_URL:
+    print(f"VALID DB URL VAR: {DATABASE_URL}")
+
     DATABASES = {
         "default": dj_database_url.config(
             env="DATABASE_URL",
@@ -107,7 +108,7 @@ else:
             "NAME": "syncstream",
         }
     }
-    
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
