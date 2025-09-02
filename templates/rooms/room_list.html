@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="room-browse-container">
+    <div class="browse-header">
+        <h1 class="browse-title"><i class="fas fa-compass me-2"></i>Browse Rooms</h1>
+        <p class="browse-subtitle">Discover public rooms to join and watch together</p>
+    </div>
+
+    <div class="browse-filter-card card card-gradient">
+        <div class="card-body">
+            <form method="get" class="row g-3 browse-filter-form">
+                <div class="col-md-6">
+                    <div class="input-group browse-search-group">
+                        <span class="input-group-text browse-search-icon">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" name="q" class="form-control browse-search-input" placeholder="Search rooms..." value="{{ search_query }}">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <select name="privacy" class="form-select browse-privacy-select">
+                        <option value="all" {% if privacy_filter == 'all' %}selected{% endif %}>All Rooms</option>
+                        <option value="public" {% if privacy_filter == 'public' %}selected{% endif %}>Public Only</option>
+                        <option value="private" {% if privacy_filter == 'private' %}selected{% endif %}>Private Only</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <select name="sort" class="form-select browse-sort-select">
+                        <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest First</option>
+                        <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Oldest First</option>
+                        <option value="most_popular" {% if sort_by == 'most_popular' %}selected{% endif %}>Most Popular</option>
+                        <option value="most_active" {% if sort_by == 'most_active' %}selected{% endif %}>Most Active</option>
+                    </select>
+                </div>
+                
+                <div class="col-12 browse-filter-actions">
+                    <button type="submit" class="btn btn-primary browse-apply-btn">
+                        <i class="fas fa-filter me-2"></i>Apply Filters
+                    </button>
+                    <a href="{% url 'rooms:room_list' %}" class="btn btn-outline-secondary browse-clear-btn">
+                        <i class="fas fa-times me-2"></i>Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="browse-results-info">
+        <p class="browse-results-text">
+            Found <strong class="browse-results-count">{{ page_obj.paginator.count }}</strong> room(s)
+            {% if search_query %}matching "<strong class="browse-search-term">{{ search_query }}</strong>"{% endif %}
+        </p>
+    </div>
+
+    {% if page_obj %}
+    <div class="browse-rooms-grid">
+        {% for room in page_obj %}
+        <div class="browse-room-card card card-gradient">
+            <div class="card-body browse-room-card-body">
+                <div class="browse-room-header">
+                    <h5 class="browse-room-title">{{ room.name }}</h5>
+                    <span class="browse-room-badge {% if room.is_private %}browse-badge-private{% else %}browse-badge-public{% endif %}">
+                        {% if room.is_private %}
+                        <i class="fas fa-lock me-1"></i>Private
+                        {% else %}
+                        <i class="fas fa-globe me-1"></i>Public
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <p class="browse-room-description">{{ room.description|truncatewords:20 }}</p>
+                
+                <div class="browse-room-meta">
+                    <div class="browse-meta-item">
+                        <i class="fas fa-user browse-meta-icon"></i>
+                        <span class="browse-meta-text">{{ room.creator.username }}</span>
+                    </div>
+                    <div class="browse-meta-item">
+                        <i class="fas fa-users browse-meta-icon"></i>
+                        <span class="browse-meta-text">{{ room.participants.count }} members</span>
+                    </div>
+                    <div class="browse-meta-item">
+                        <i class="fas fa-circle browse-meta-icon {% if room.get_online_users_count > 0 %}browse-online-dot{% else %}browse-offline-dot{% endif %}"></i>
+                        <span class="browse-meta-text">{{ room.get_online_users_count }} online</span>
+                    </div>
+                </div>
+                
+                <div class="browse-room-footer">
+                    <a href="{% url 'rooms:room_detail' room.id %}" class="btn btn-primary btn-sm browse-join-btn">
+                        <i class="fas fa-arrow-right me-2"></i>Join Room
+                    </a>
+                    <small class="browse-room-date">
+                        Created {{ room.created_at|timesince }} ago
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="browse-empty-state">
+        <i class="fas fa-door-closed browse-empty-icon"></i>
+        <h4 class="browse-empty-title">No rooms found</h4>
+        <p class="browse-empty-text">Try adjusting your search filters</p>
+    </div>
+    {% endif %}
+
+    {% if page_obj.has_other_pages %}
+    <nav class="browse-pagination">
+        <ul class="pagination justify-content-center browse-pagination-list">
+            {% if page_obj.has_previous %}
+            <li class="page-item browse-pagination-item">
+                <a class="page-link browse-pagination-link" href="?{% if search_query %}q={{ search_query }}&{% endif %}{% if privacy_filter != 'all' %}privacy={{ privacy_filter }}&{% endif %}{% if sort_by != 'newest' %}sort={{ sort_by }}&{% endif %}page={{ page_obj.previous_page_number }}">
+                    <i class="fas fa-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+            <li class="page-item browse-pagination-item {% if page_obj.number == num %}browse-pagination-active{% endif %}">
+                <a class="page-link browse-pagination-link" href="?{% if search_query %}q={{ search_query }}&{% endif %}{% if privacy_filter != 'all' %}privacy={{ privacy_filter }}&{% endif %}{% if sort_by != 'newest' %}sort={{ sort_by }}&{% endif %}page={{ num }}">
+                    {{ num }}
+                </a>
+            </li>
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item browse-pagination-item">
+                <a class="page-link browse-pagination-link" href="?{% if search_query %}q={{ search_query }}&{% endif %}{% if privacy_filter != 'all' %}privacy={{ privacy_filter }}&{% endif %}{% if sort_by != 'newest' %}sort={{ sort_by }}&{% endif %}page={{ page_obj.next_page_number }}">
+                    <i class="fas fa-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+
+{% endblock %}

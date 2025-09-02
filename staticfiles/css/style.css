@@ -1,6 +1,6 @@
 :root {
     --deep-purple: #210F37;
-    --royal-purple: hwb(298 11% 68%);
+    --royal-purple: #6A3093;
     --terracotta: #A55B4B;
     --golden-sand: #DCA06D;
     --dark-bg: #0f0820;
@@ -10,14 +10,24 @@
     --glass-effect: rgba(33, 15, 55, 0.25);
 }
 
-body.dark-theme {
-    background-color: var(--dark-bg);
-    color: var(--light-text);
-    font-family: 'Poppins', sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-}
+  body {
+            background-color: var(--dark-bg);
+            color: var(--light-text);
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--golden-sand);
+        }
 
 .navbar-custom {
     background-color: var(--deep-purple);
@@ -1350,10 +1360,11 @@ body.dark-theme {
         grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     }
 }
+
 @keyframes pulse {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.05); }
-    100% { transform: scale(1); }
+    0% { transform: scale(1); opacity: 0.3; }
+    50% { transform: scale(1.1); opacity: 0.2; }
+    100% { transform: scale(1); opacity: 0.3; }
 }
 
 .participant-card-online:hover {
@@ -2426,21 +2437,6 @@ form.d-inline {
     animation: pulse 2s infinite;
 }
 
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        opacity: 0.3;
-    }
-    50% {
-        transform: scale(1.1);
-        opacity: 0.2;
-    }
-    100% {
-        transform: scale(1);
-        opacity: 0.3;
-    }
-}
-
 .logout-icon {
     font-size: 3rem;
     color: var(--golden-sand);
@@ -3378,4 +3374,331 @@ strong {
 .participant-actions .btn {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
+}
+
+.room-browse-container {
+    padding: 2rem 0;
+    color: var(--light-text);
+}
+
+.browse-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.browse-title {
+    color: var(--golden-sand);
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+    font-family: 'Orbitron', sans-serif;
+}
+
+.browse-subtitle {
+    color: var(--muted-text);
+    font-size: 1.1rem;
+}
+
+.browse-filter-card {
+    margin-bottom: 2rem;
+}
+
+.browse-search-group {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.browse-search-icon {
+    background: var(--royal-purple);
+    border: none;
+    color: white;
+}
+
+.browse-search-input {
+    background: rgba(33, 15, 55, 0.8);
+    border: 2px solid var(--royal-purple);
+    color: var(--light-text);
+    border-left: none;
+}
+
+.browse-search-input:focus {
+    background: rgba(33, 15, 55, 0.9);
+    border-color: var(--terracotta);
+    color: var(--light-text);
+    box-shadow: 0 0 0 0.2rem rgba(168, 85, 75, 0.25);
+}
+
+.browse-privacy-select,
+.browse-sort-select {
+    background: rgba(33, 15, 55, 0.8);
+    border: 2px solid var(--royal-purple);
+    color: var(--light-text);
+    border-radius: 8px;
+}
+
+.browse-privacy-select:focus,
+.browse-sort-select:focus {
+    background: rgba(33, 15, 55, 0.9);
+    border-color: var(--terracotta);
+    color: var(--light-text);
+    box-shadow: 0 0 0 0.2rem rgba(168, 85, 75, 0.25);
+}
+
+.browse-filter-actions {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.browse-apply-btn {
+    background: linear-gradient(135deg, var(--terracotta), var(--royal-purple));
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.browse-apply-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(168, 85, 75, 0.4);
+}
+
+.browse-clear-btn {
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.browse-clear-btn:hover {
+    border-color: var(--light-text);
+    color: var(--light-text);
+    transform: translateY(-2px);
+}
+
+.browse-results-info {
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.browse-results-text {
+    color: var(--muted-text);
+    font-size: 1.1rem;
+}
+
+.browse-results-count,
+.browse-search-term {
+    color: var(--golden-sand);
+    font-weight: 600;
+}
+
+.browse-rooms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.browse-room-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(168, 85, 75, 0.2);
+    border-radius: 15px;
+    transition: all 0.3s ease;
+    height: 100%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.browse-room-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(168, 85, 75, 0.3);
+    border-color: var(--terracotta);
+}
+
+.browse-room-card-body {
+    padding: 1.5rem;
+}
+
+.browse-room-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.browse-room-title {
+    color: var(--golden-sand);
+    margin: 0;
+    flex: 1;
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+.browse-room-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.browse-badge-public {
+    background: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.browse-badge-private {
+    background: rgba(108, 117, 125, 0.2);
+    color: #6c757d;
+    border: 1px solid rgba(108, 117, 125, 0.3);
+}
+
+.browse-room-description {
+    color: var(--light-text);
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+    opacity: 0.9;
+}
+
+.browse-room-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.browse-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--muted-text);
+    font-size: 0.9rem;
+}
+
+.browse-meta-icon {
+    font-size: 0.8rem;
+}
+
+.browse-online-dot {
+    color: #28a745 !important;
+    text-shadow: 0 0 8px rgba(40, 167, 69, 0.6);
+}
+
+.browse-offline-dot {
+    color: #6c757d !important;
+}
+
+.browse-room-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.browse-join-btn {
+    background: linear-gradient(135deg, var(--royal-purple), var(--terracotta));
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.browse-join-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(168, 85, 75, 0.4);
+}
+
+.browse-room-date {
+    color: var(--muted-text);
+    font-size: 0.9rem;
+}
+
+.browse-empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--muted-text);
+}
+
+.browse-empty-icon {
+    font-size: 4rem;
+    color: var(--royal-purple);
+    margin-bottom: 1.5rem;
+    opacity: 0.7;
+}
+
+.browse-empty-title {
+    color: var(--light-text);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.browse-empty-text {
+    font-size: 1.1rem;
+    opacity: 0.8;
+}
+
+.browse-pagination {
+    margin-top: 3rem;
+}
+
+.browse-pagination-list {
+    gap: 0.5rem;
+}
+
+.browse-pagination-item .browse-pagination-link {
+    background: var(--card-bg);
+    border: 1px solid var(--royal-purple);
+    color: var(--light-text);
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.browse-pagination-item .browse-pagination-link:hover {
+    background: var(--terracotta);
+    border-color: var(--terracotta);
+    color: white;
+    transform: translateY(-2px);
+}
+
+.browse-pagination-active .browse-pagination-link {
+    background: linear-gradient(135deg, var(--royal-purple), var(--terracotta));
+    border-color: var(--terracotta);
+    color: white;
+}
+
+@media (max-width: 768px) {
+    .browse-rooms-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .browse-room-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .browse-room-badge {
+        align-self: flex-start;
+    }
+    
+    .browse-room-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .browse-room-footer {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .browse-filter-actions {
+        flex-direction: column;
+    }
+    
+    .browse-apply-btn,
+    .browse-clear-btn {
+        width: 100%;
+    }
 }

@@ -13,6 +13,8 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.contrib.auth import get_user_model
 from uuid import UUID
+from django.db.models import Q, Count
+from django.core.paginator import Paginator
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +23,48 @@ User = get_user_model()
 def home(request):
     rooms = Room.objects.filter(is_active=True, is_private=False)
     return render(request, 'rooms/home.html', {'rooms': rooms})
+
+def room_list(request):
+    search_query = request.GET.get('q', '')
+    privacy_filter = request.GET.get('privacy', 'all')
+    sort_by = request.GET.get('sort', 'newest')
+    page_number = request.GET.get('page', 1)
+    
+    rooms = Room.objects.filter(is_active=True)
+    
+    if search_query:
+        rooms = rooms.filter(
+            Q(name__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(creator__username__icontains=search_query)
+        )
+    
+    if privacy_filter == 'public':
+        rooms = rooms.filter(is_private=False)
+    elif privacy_filter == 'private':
+        rooms = rooms.filter(is_private=True)
+    
+    if sort_by == 'newest':
+        rooms = rooms.order_by('-created_at')
+    elif sort_by == 'oldest':
+        rooms = rooms.order_by('created_at')
+    elif sort_by == 'most_popular':
+        rooms = rooms.annotate(participant_count=Count('participants')).order_by('-participant_count')
+    elif sort_by == 'most_active':
+        rooms = rooms.annotate(online_count=Count('participants', filter=Q(participants__is_online=True))).order_by('-online_count')
+    
+    paginator = Paginator(rooms, 12)
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'rooms': page_obj,
+        'search_query': search_query,
+        'privacy_filter': privacy_filter,
+        'sort_by': sort_by,
+        'page_obj': page_obj,
+    }
+    
+    return render(request, 'rooms/room_list.html', context)
 
 @login_required
 def join_by_password(request):
