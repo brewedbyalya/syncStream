@@ -1,9 +1,8 @@
-from dotenv import load_dotenv
+import dj_database_url
 import os
 from pathlib import Path
 
-import dj_database_url
-
+from dotenv import load_dotenv
 load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -15,8 +14,10 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 if 'RAILWAY_ENVIRONMENT' in os.environ:
     DEBUG = False
-else:
-    DEBUG = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 
 ALLOWED_HOSTS = ["*"]
