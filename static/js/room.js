@@ -182,9 +182,10 @@ function connectWebSocket() {
     roomSocket.onmessage = function(e) {
         try {
             const data = JSON.parse(e.data);
+            console.log('RAW WebSocket message received:', data);
             handleWebSocketMessage(data);
         } catch (error) {
-            console.error('Error parsing WebSocket message:', error);
+            console.error('Error parsing WebSocket message:', error, 'Raw data:', e.data);
         }
     };
 
@@ -215,6 +216,7 @@ function handleWebSocketMessage(data) {
         case 'typing_indicator': 
             handleTypingIndicator(data);
             break;           
+
         case 'video_control':
             handleVideoControl(data);
             break;
@@ -347,13 +349,15 @@ function handleUserBanned(data) {
 }
 
 function handleYouWereBanned(data) {
-    console.log('You were banned:', data);
+    console.log('Handling ban:', data);
     showNotification(`You were permanently banned from "${data.room_name}" by ${data.banned_by}`, 'danger');
     
+    const redirectUrl = data.redirect_url || '/youre-banned/';
+    const fullUrl = `${redirectUrl}?room_name=${encodeURIComponent(data.room_name)}&banned_by=${encodeURIComponent(data.banned_by)}`;
+    
     setTimeout(() => {
-        showNotification('Redirecting...', 'info');
-        window.location.href = data.redirect_url || '/youre-banned/';
-    }, 3000);
+        window.location.href = fullUrl;
+    }, 2000);
 }
 
 function handleUserUnbanned(data) {
@@ -388,14 +392,14 @@ function handleUserKicked(data) {
 }
 
 function handleYouWereKicked(data) {
-    console.log('You were kicked:', data);
+    console.log('Handling kick:', data);
     showNotification(`You were kicked from "${data.room_name}" by ${data.kicked_by}`, 'danger');
     
     setTimeout(() => {
-        showNotification('Redirecting to home page...', 'info');
-        window.location.href = '/';
-    }, 3000);
+        window.location.href = data.redirect_url || '/';
+    }, 2000);
 }
+
 
 function showTypingIndicator(username) {
     const indicator = document.getElementById('typing-indicator');

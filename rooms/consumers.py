@@ -405,6 +405,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'kicked_by': event['kicked_by'],
             'redirect_url': '/'
         }))
+        await asyncio.sleep(1)
         await self.close(code=4006)
 
     async def user_muted(self, event):
@@ -441,6 +442,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             'banned_by': event['banned_by'],
             'redirect_url': '/youre-banned/'
         }))
+        await asyncio.sleep(1)
         await self.close(code=4007)
 
     async def user_unbanned(self, event):
