@@ -5,7 +5,7 @@ A website where users can create virtual rooms (both public and private) and eit
 
 ## 🚀 Getting Started
 
-👉 **Access it** [here!](link)
+👉 **Access it** -->(deployment doesn't work yet.)
 
 👉 **Planning Materials:**
  [User Stories + Wireframe](https://trello.com/b/65omiUHS/syncstream)
@@ -23,5 +23,7 @@ A website where users can create virtual rooms (both public and private) and eit
 
 ## 📚 Credits / References Used
 - [Color Scheme](https://colorhunt.co/palette/e4004bed775afad691c9cdcf)
-- [Images](https://www.pexels.com/)
+- [Learning WebSocket](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_client_applications)
+- [Learning WebRTC](https://medium.com/@fengliu_367/getting-started-with-webrtc-a-practical-guide-with-example-code-b0f60efdd0a7)
+- [CSS Animations](https://docs.fontawesome.com/web/style/animate)
 - Thank you Nabila for helping me in getting the video player working. 
