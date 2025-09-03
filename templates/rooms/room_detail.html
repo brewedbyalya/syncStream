@@ -205,40 +205,41 @@
         </div>
     </div>
 
-    <div class="sidebar-section">
-  <div class="card card-gradient h-100">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <div class="d-flex align-items-center">
-            <i class="fas fa-comments me-2"></i>
-            <span>Chat</span>
-            <span class="badge bg-secondary ms-2" id="message-count">{{ messages|length }}</span>
-        </div>
-        <span id="chat-indicator" class="badge badge-gradient">Connected</span>
-    </div>
-    <div class="card-body p-0">
-        <div id="chat-messages" class="chat-messages chat-messages-glass custom-scrollbar">
-        {% for message in messages %}
-<div class="message-container" data-message-id="{{ message.id }}">
-    <div class="message {% if message.user == user %}message-self{% elif message.user.username == 'System' %}message-system{% else %}message-other{% endif %}">
-        <a href="{% url 'view_profile' message.user.username %}" class="text-primary">
-            <strong>{{ message.user.username }}:</strong>
-        </a>
-        <span class="message-content">{{ message.message }}</span>
-        <small class="text-muted ms-2">
-            <i class="fas fa-clock me-1"></i>{{ message.created_at|time }}
-        </small>
-        {% if room.creator == user %}
-        <button class="btn btn-sm btn-link text-danger delete-message-btn ms-2" 
-                onclick="deleteMessage('{{ message.id }}')"
-                title="Delete message">
-            <i class="fas fa-trash-alt"></i>
-        </button>
-        {% endif %}
-    </div>
-</div>
-{% endfor %}
+<div class="sidebar-section">
+    <div class="card card-gradient h-100">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-comments me-2"></i>
+                <span>Chat</span>
+                <span class="badge bg-secondary ms-2" id="message-count">{{ messages|length }}</span>
+            </div>
+            <span id="chat-indicator" class="badge badge-gradient">Connected</span>
         </div>
         
+        <div class="card-body p-0">
+            <div id="chat-messages" class="chat-messages chat-messages-glass custom-scrollbar">
+                {% for message in messages %}
+                <div class="message-container" data-message-id="{{ message.id }}">
+                    <div class="message {% if message.user == user %}message-self{% elif message.user.username == 'System' %}message-system{% else %}message-other{% endif %}">
+                        <a href="{% url 'view_profile' message.user.username %}" class="text-primary">
+                            <strong>{{ message.user.username }}:</strong>
+                        </a>
+                        <span class="message-content">{{ message.message }}</span>
+                        <small class="text-muted ms-2">
+                            <i class="fas fa-clock me-1"></i>{{ message.created_at|time }}
+                        </small>
+                        {% if room.creator == user %}
+                        <button class="btn btn-sm btn-link text-danger delete-message-btn ms-2" 
+                                onclick="deleteMessage('{{ message.id }}')"
+                                title="Delete message">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
             <div id="typing-indicator" class="typing-indicator d-none">
                 <div class="d-flex align-items-center px-3 py-2">
                     <span id="typing-users" class="text-muted me-2"></span>
@@ -249,20 +250,21 @@
                     </div>
                 </div>
             </div>
-    
-    <div class="card-footer">
-        <div class="input-group">
-            <input type="text" id="chat-input" class="form-control" placeholder="Type your message..." autocomplete="off">
-            <button id="chat-send" class="btn btn-primary">
-                <i class="fas fa-paper-plane"></i>
-            </button>
         </div>
-        <div class="mt-2">
-            <small class="text-muted">Press Enter to send</small>
+        
+        <div class="card-footer">
+            <div class="input-group">
+                <input type="text" id="chat-input" class="form-control" placeholder="Type your message..." autocomplete="off">
+                <button id="chat-send" class="btn btn-primary">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="mt-2">
+                <small class="text-muted">Press Enter to send</small>
+            </div>
         </div>
     </div>
 </div>
-        </div>
 
 <div class="collapsible-section">
     <div class="collapsible-header" onclick="toggleCollapsible('quick-actions-section')">

@@ -830,16 +830,44 @@
     color: rgba(201, 205, 207, 0.5);
 }
 
+.video-controls {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 10px;
+    margin: 10px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-control {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 8px 12px;
+    margin: 0 5px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-control:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.btn-control:active {
+    transform: translateY(0);
+}
+
 .video-controls-glass {
-    background: rgba(44, 62, 80, 0.95) !important;
-    backdrop-filter: blur(20px);
-    border: 2px solid rgba(220, 160, 109, 0.3);
-    border-radius: 50px;
-    padding: 12px 24px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    margin: 15px;
-    position: relative;
-    z-index: 10;
+    background: rgba(0, 0, 0, 0.6) !important;
+    backdrop-filter: blur(15px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .video-controls-glass button {
@@ -865,11 +893,11 @@
 }
 
 .video-info {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 8px 15px;
-    border-radius: 25px;
-    border: 1px solid rgba(255, 255, 255, 0.1);
     margin-left: 15px;
+    padding: 5px 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    font-size: 0.85rem;
 }
 
 #start-screen-share, #stop-screen-share {

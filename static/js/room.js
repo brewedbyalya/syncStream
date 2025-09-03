@@ -981,6 +981,21 @@ function updateOnlineCount(change) {
     }
 }
 
+function sendChatMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    if (roomSocket && roomSocket.readyState === WebSocket.OPEN) {
+        roomSocket.send(JSON.stringify({
+            'type': 'chat_message',
+            'message': message
+        }));
+        chatInput.value = '';
+    } else {
+        showNotification('Not connected to chat', 'error');
+    }
+}
+
 function isValidVideoUrl(url) {
     if (!url) return false;
     if (/^[A-Za-z0-9_-]{11}$/.test(url.trim())) return true;
@@ -1119,7 +1134,7 @@ function updateParticipantMuteStatus(userId, isMuted) {
     }
 }
 
-function deleteMessage(messageId) {
+function deleteMessage(messageId) {    
     if (!messageId || messageId === 'undefined') {
         showNotification('Cannot delete message: Invalid message ID', 'error');
         return;
@@ -1133,7 +1148,7 @@ function deleteMessage(messageId) {
         const contentElement = messageElement.querySelector('.message-content');
         const usernameElement = messageElement.querySelector('strong');
         if (contentElement) messageContent = contentElement.textContent;
-        if (usernameElement) username = usernameElement.textContent.replace(':', '').trim();
+        if (usernameElement) username = usernameElement.textContent;
     }
     
     const truncatedMessage = messageContent.length > 50 ? 

@@ -19,14 +19,14 @@ class RoomConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f'room_{self.room_id}'
         self.user = self.scope['user']
 
-        if not self.user.is_authenticated:
-            await self.close(code=4003)
-            return
-
         await self.channel_layer.group_add(
             self.room_group_name,
             self.channel_name
         )
+
+        if not self.user.is_authenticated:
+            await self.close(code=4003)
+            return
 
         try:
             room = await self.get_room()
@@ -457,7 +457,6 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
     async def handle_chat_message(self, data):
         try:
-
             is_muted = await self.check_if_muted()
             if is_muted:
                 await self.send(text_data=json.dumps({
@@ -465,6 +464,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                     'message': 'You are currently muted and cannot send messages'
                 }))
                 return
+                
             message = data.get('message', '').strip()
             
             if not message:
@@ -489,14 +489,6 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 }))
                 return
 
-            room = await self.get_room()
-            if not room:
-                await self.send(text_data=json.dumps({
-                    'type': 'error',
-                    'message': 'Room not found'
-                }))
-                return
-            
             if room and room.allow_chat:
                 saved_message = await self.save_message(room, message)
                 if saved_message:
@@ -511,7 +503,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                             'message_id': str(saved_message.id),
                         }
                     )
-            
+                
         except Exception as e:
             logger.error(f"Error handling chat message: {str(e)}")
             await self.send(text_data=json.dumps({
